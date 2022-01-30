@@ -1,0 +1,56 @@
+[package]
+name = "arexibo"
+version = "0.1.0"
+edition = "2018"
+authors = ["Georg Brandl <g.brandl@fz-juelich.de>"]
+license = "AGPL-3+"
+
+[[bin]]
+name = "arexibo"
+path = "src/main.rs"
+
+[[bin]]
+name = "convlayout"
+path = "src/convlayout.rs"
+
+[dependencies]
+# general
+anyhow = "1.0"
+base64 = "0.13"
+chrono = "0.4"
+clap = { version = "3.0", features = ["cargo", "derive"] }
+crossbeam-channel = "0.5"
+hex = "0.4"
+itertools = "0.10"
+log = "0.4"
+rand = "0.8"
+
+# GUI
+cairo-rs = { version = "0.15", features = ["png"] }
+glib = "0.15"
+gio = "0.15"
+gdk = "0.15"
+gtk = "0.15"
+webkit2gtk = { version = "0.17", features = ["v2_8"] }
+
+# crypto
+arc4 = "0.1"
+md-5 = "0.10"
+rsa = "0.5"
+
+# file formats
+elementtree = "0.7"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.5"
+
+# network
+tiny_http = { version = "0.10" }
+ureq = { version = "2.4" }
+zmq = "0.9"
+
+[build-dependencies]
+elementtree = "0.7"
+
+[features]
+gui = []  # avoid long build times when working on backend
