@@ -12,14 +12,14 @@ use glib::{clone, prelude::*};
 use gdk_pixbuf::Pixbuf;
 use gtk::{prelude::*, Inhibit, Window, WindowType};
 use webkit2gtk::{WebContext, WebView, UserContentManager, SnapshotRegion, SnapshotOptions};
-use webkit2gtk::traits::{UserContentManagerExt, SettingsExt, WebViewExt};
+use webkit2gtk::traits::{UserContentManagerExt, SettingsExt, WebViewExt, WebInspectorExt};
 use crate::collect::Update;
 use crate::config::PlayerSettings;
 
 const LOGO_PNG: &[u8] = include_bytes!("../assets/logo.png");
 
 
-pub fn run(settings: PlayerSettings,
+pub fn run(settings: PlayerSettings, inspect: bool,
            updates: glib::Receiver<Update>, snaps: Sender<Vec<u8>>) -> Result<()> {
     gtk::init().expect("failed to init gtk");
     let base_uri = format!("http://localhost:{}/", settings.embedded_server_port);
@@ -41,10 +41,12 @@ pub fn run(settings: PlayerSettings,
         .user_content_manager(&manager)
         .build();
 
-    let ws = WebViewExt::settings(&webview).unwrap();
-    ws.set_enable_developer_extras(true);
-    // let inspector = webview.inspector().unwrap();
-    // inspector.show();
+    if inspect {
+        let ws = WebViewExt::settings(&webview).unwrap();
+        ws.set_enable_developer_extras(true);
+        let inspector = webview.inspector().unwrap();
+        inspector.show();
+    }
 
     webview.load_uri(&format!("{}splash.html", base_uri));
     window.add(&webview);

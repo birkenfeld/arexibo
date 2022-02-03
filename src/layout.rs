@@ -54,6 +54,7 @@ pub fn translate(xlf: &Path, html: &Path) -> Result<()> {
         for media in region.find_all("media") {
             let id = media.def_attr("id", "");
             let len = media.def_attr("duration", "").parse::<i32>().unwrap_or(10);
+            let opts = media.find("options").unwrap();
             let mut start = "".into();
             let mut trans = None;
             match (media.get_attr("render"), media.get_attr("type")) {
@@ -76,15 +77,15 @@ pub fn translate(xlf: &Path, html: &Path) -> Result<()> {
                     let filename = media.find("options").unwrap().find("uri").unwrap().text();
                     writeln!(out, "<img class='media r{}' id='m{}' src='{}' \
                                    style='left: {}px; top: {}px; width: {}px; height: {}px; {}{}'>",
-                             rid, id, filename, x, y, w, h, object_fit(media), object_pos(media))?;
+                             rid, id, filename, x, y, w, h, object_fit(opts), object_pos(opts))?;
                 }
                 (_, Some("video")) => {
                     let filename = media.find("options").unwrap().find("uri").unwrap().text();
                     writeln!(out, "<video class='media r{}' id='m{}' src='{}' muted \
                                    style='left: {}px; top: {}px; {}{}' width='{}' height='{}'></video>",
-                             rid, id, filename, x, y, object_fit(media), object_pos(media), w, h)?;
+                             rid, id, filename, x, y, object_fit(opts), object_pos(opts), w, h)?;
                     start = format!("$('#m{}')[0].play();", id);
-                    trans = Some(format!("$('#m{}')[0].onended = () => {{ $('#m{}')[0].fastSeek(0); ### }};", id, id));
+                    trans = Some(format!("$('#m{}')[0].onended = (e) => {{ e.target.fastSeek(0); ### }};", id));
                 }
                 _ => continue,
             }

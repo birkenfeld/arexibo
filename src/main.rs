@@ -33,6 +33,9 @@ struct Args {
     /// The ID for this display.  Use e.g. /etc/machine-id.
     #[clap(long)]
     display_id: Option<String>,
+    /// Show web inspector to debug layout problems.
+    #[clap(long)]
+    inspect: bool,
 }
 
 fn main() {
@@ -78,7 +81,7 @@ fn main_inner() -> anyhow::Result<()> {
     #[cfg(feature = "gui")]
     {
         std::thread::spawn(|| handler.run());
-        return gui::run(settings, updates_rx, snaps_tx);
+        return gui::run(settings, args.inspect, updates_rx, snaps_tx);
     }
     #[cfg(not(feature = "gui"))]
     {
