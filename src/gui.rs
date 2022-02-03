@@ -89,7 +89,7 @@ pub fn run(settings: PlayerSettings, inspect: bool,
                 Update::Layouts(layouts) => if let Some(id) = layouts.first() {
                     log::info!("showing layout: {}", id);
                     // TODO: adapt webview scale to actual vs. designed size
-                    webview.load_uri(&format!("{}layout?{}", base_uri, id));
+                    webview.load_uri(&format!("{}{}.xlf.html", base_uri, id));
                 }
             }
             Continue(true)

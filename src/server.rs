@@ -1,14 +1,14 @@
 // Xibo player Rust implementation, (c) 2022 Georg Brandl.
 // Licensed under the GNU AGPL, version 3 or later.
 
-//! Handling resources such as media and layout files.
+//! Internal webserver to point the webview to.
 
 use std::{sync::Arc, fs, io::Read, io::Seek, thread};
 use std::path::PathBuf;
 use anyhow::{anyhow, bail, Result};
 use tiny_http::{Request, Response, ResponseBox, Header, StatusCode};
 
-/// Internal webserver that is used to serve layouts and media to the webview.
+
 pub struct Server {
     dir: PathBuf,
     server: tiny_http::Server,
@@ -41,28 +41,15 @@ impl Server {
         }
     }
 
+    /// Serve a single HTTP request.
     fn serve(dir: &PathBuf, req: &Request) -> Result<ResponseBox> {
         log::debug!("HTTP request: {}", req.url());
         Ok(match req.url() {
+            // built-in files?
             "/splash.jpg" => Response::from_data(SPLASH_JPG).boxed(),
             "/splash.html" => Response::from_data(SPLASH_HTML).boxed(),
-            path if path.starts_with("/layout?") => {
-                let id: i64 = path[8..].parse()?;
-                let htmlpath = dir.join(format!("{}.xlf.html", id));
-                if !htmlpath.is_file() {
-                    let xlfpath = dir.join(format!("{}.xlf", id));
-                    if xlfpath.is_file() {
-                        log::info!("requested layout {}, needs processing", id);
-                        // layout::translate(&xlfpath, &htmlpath)?;
-                        //     .context("translating layout")?;
-                        Response::from_file(fs::File::open(htmlpath)?).boxed()
-                    } else {
-                        Response::empty(404).boxed()
-                    }
-                } else {
-                    Response::from_file(fs::File::open(htmlpath)?).boxed()
-                }
-            },
+
+            // any other static files
             path => {
                 let path = dir.join(&path[1..]);
                 if !path.is_file() {
@@ -74,18 +61,8 @@ impl Server {
                 for h in req.headers() {
                     if h.field.equiv("Range") {
                         let total_size = fp.metadata()?.len();
-                        let requested = h.value.to_string();
-                        let mut parts = requested.split(&['=', '-'][..]);
-                        let (from, to) = match (parts.next(), parts.next(), parts.next()) {
-                            (Some("bytes"), Some(from), Some(to)) => {
-                                (from.parse().unwrap_or(0), to.parse().unwrap_or(total_size - 1))
-                            }
-                            _ => bail!("invalid Range header")
-                        };
-                        if ! (from <= to && to < total_size) {
-                            bail!("invalid Range from/to")
-                        }
-                        let size = to - from + 1;
+                        let (from, to, size) = parse_range(total_size,
+                                                           h.value.to_string())?;
                         fp.seek(std::io::SeekFrom::Start(from))?;
                         let stream = fp.take(size);
 
@@ -103,6 +80,7 @@ impl Server {
                     }
                 }
 
+                // guess the MIME type based on filename
                 let ctype = match path.extension().and_then(|e| e.to_str()) {
                     Some("html") => "text/html",
                     Some("js") => "text/javascript",
@@ -138,5 +116,18 @@ const SPLASH_HTML: &[u8] = br#"<!doctype html>
 const SPLASH_JPG: &[u8] = include_bytes!("../assets/splash.jpg");
 
 
-// TODO:
-// - central + persisted storage of media info, layout info
+/// Parse a HTTP Range header.
+fn parse_range(total_size: u64, header: String) -> Result<(u64, u64, u64)> {
+    let mut parts = header.split(&['=', '-'][..]);
+    let (from, to) = match (parts.next(), parts.next(), parts.next()) {
+        (Some("bytes"), Some(from), Some(to)) => {
+            (from.parse().unwrap_or(0), to.parse().unwrap_or(total_size - 1))
+        }
+        _ => bail!("invalid Range header")
+    };
+    if ! (from <= to && to < total_size) {
+        bail!("invalid Range from/to")
+    }
+    let size = to - from + 1;
+    Ok((from, to, size))
+}

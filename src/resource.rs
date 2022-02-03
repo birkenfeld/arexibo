@@ -10,6 +10,10 @@ use md5::{Md5, Digest};
 use ureq::Agent;
 use crate::xmds;
 
+// TODO:
+// - central + persisted storage of media info, layout info
+
+
 #[derive(Debug, Clone, Copy)]
 pub enum FileType {
     Media,
@@ -82,6 +86,7 @@ impl Cache {
                 fs::metadata(self.dir.join(format!("{}.html", mediaid))).map_or(false, |p| p.is_file())
             }
             &Resource::File { ref name, .. } => {
+                // TODO: check the MD5 as well
                 fs::metadata(self.dir.join(name)).map_or(false, |p| p.is_file())
             }
         }
@@ -94,6 +99,10 @@ impl Cache {
                                             &mediaid.to_string())?;
                 let fname = format!("{}.html", mediaid);
                 fs::write(self.dir.join(&fname), &data)?;
+
+                // TODO:
+                // - process (replace [[ViewPort]], get DURATION)
+                // - re-download after given updateInterval
             }
             &Resource::File { id, typ, http, size, ref md5, ref path, ref name } => {
                 let data = if http {
@@ -112,6 +121,8 @@ impl Cache {
                     bail!("md5 mismatch");
                 }
                 fs::write(self.dir.join(name), data)?;
+
+                // TODO: process layouts to HTML
             }
         }
         Ok(())

@@ -16,8 +16,8 @@ iframe { border: 0 }
 p { margin-top: 0; }
 "#;
 
-const SCRIPT: &str = r#"
-"#;
+
+// TODO: factor this into proper code.
 
 
 pub fn translate(xlf: &Path, html: &Path) -> Result<()> {
@@ -39,7 +39,7 @@ pub fn translate(xlf: &Path, html: &Path) -> Result<()> {
         writeln!(out, "body {{ background-color: {}; }}", color)?;
     }
 
-    writeln!(out, "</style>\n<script>\n{}</script>", SCRIPT)?;
+    writeln!(out, "</style>")?;
     writeln!(out, "</head><body>")?;
 
     let mut animate_regions = Vec::new();

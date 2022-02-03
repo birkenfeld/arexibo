@@ -11,6 +11,7 @@ use serde::{Deserialize, Deserializer};
 use serde_json::from_slice;
 use crate::config::CmsSettings;
 
+/// Possible messages to forward to the collect thread.
 #[derive(Debug)]
 pub enum Message {
     CollectNow,
