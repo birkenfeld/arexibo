@@ -43,6 +43,7 @@ pub fn run(settings: PlayerSettings,
     webview.load_uri(&format!("{}splash.html", base_uri));
     window.add(&webview);
     window.set_decorated(false);
+    window.set_title(&settings.display_name);
     window.fullscreen();
     window.show_all();
 
@@ -73,6 +74,7 @@ pub fn run(settings: PlayerSettings,
                         });
                 }
                 Update::Settings(settings) => {
+                    window.set_title(&settings.display_name);
                     apply_size(&window, settings);
                 }
                 Update::Layouts(layouts) => if let Some(id) = layouts.first() {

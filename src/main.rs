@@ -14,7 +14,7 @@ pub mod xmr;
 pub mod res;
 pub mod util;
 
-use std::{path::PathBuf, thread};
+use std::path::PathBuf;
 use anyhow::Context;
 use clap::Parser;
 
@@ -77,7 +77,7 @@ fn main_inner() -> anyhow::Result<()> {
 
     #[cfg(feature = "gui")]
     {
-        thread::spawn(|| handler.run());
+        std::thread::spawn(|| handler.run());
         return gui::run(settings, updates_rx, snaps_tx);
     }
     #[cfg(not(feature = "gui"))]

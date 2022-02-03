@@ -77,8 +77,8 @@ pub fn translate(xlf: &Path, html: &Path) -> Result<()> {
                 }
                 (_, Some("image")) => {
                     // TODO: center image
-                    writeln!(out, "<img class='media' id='m{}' src='{}' style='width: {}px'>",
-                             id, media.find("options").unwrap().find("uri").unwrap().text(), w)?;
+                    writeln!(out, "<img class='media' id='m{}' src='{}' style='width: {}px; height: {}px; object-fit: contain;'>",
+                             id, media.find("options").unwrap().find("uri").unwrap().text(), w, h)?;
                 }
                 (_, Some("video")) => {
                     let filename = media.find("options").unwrap().find("uri").unwrap().text();
