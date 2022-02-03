@@ -17,141 +17,183 @@ p { margin-top: 0; }
 "#;
 
 
-// TODO: factor this into proper code.
+pub struct Translator {
+    tree: Option<Element>,
+    out: BufWriter<fs::File>,
+    animate_regions: Vec<i32>,
+}
 
+impl Translator {
+    pub fn new(xlf: &Path, html: &Path) -> Result<Self> {
+        let file = fs::File::open(xlf)?;
+        let tree = Some(Element::from_reader(file).context("parsing XLF")?);
 
-pub fn translate(xlf: &Path, html: &Path) -> Result<()> {
-    let file = fs::File::open(xlf)?;
-    let tree = Element::from_reader(file).context("parsing XLF")?;
+        let out = fs::File::create(html)?;
+        let out = BufWriter::new(out);
 
-    let out = fs::File::create(html)?;
-    let mut out = BufWriter::new(out);
-
-    writeln!(out, "<!doctype html><html><head>")?;
-    writeln!(out, "<meta charset='utf-8'>")?;
-    writeln!(out, "<script src='jquery.min.js'></script>")?;
-    writeln!(out, "<style type='text/css'>\n{}", LAYOUT_CSS)?;
-
-    if let Some(file) = tree.get_attr("background") {
-        writeln!(out, "body {{ background-image: url('{}'); }}", file)?;
-    }
-    if let Some(color) = tree.get_attr("bgcolor") {
-        writeln!(out, "body {{ background-color: {}; }}", color)?;
+        Ok(Self { tree, out, animate_regions: Vec::new() })
     }
 
-    writeln!(out, "</style>")?;
-    writeln!(out, "</head><body>")?;
+    pub fn translate(mut self) -> Result<()> {
+        let tree = self.tree.take().unwrap();
+        self.write_header(&tree)?;
+        for region in tree.find_all("region") {
+            if let Err(e) = self.write_region(region) {
+                log::error!("layout: could not translate region: {:#}", e);
+            }
+        }
+        self.write_footer()?;
+        Ok(())
+    }
 
-    let mut animate_regions = Vec::new();
-    for region in tree.find_all("region") {
-        let rid = region.def_attr("id", "");
-        let x = region.def_attr("left", "0");
-        let y = region.def_attr("top", "0");
-        let w = region.def_attr("width", "0");
-        let h = region.def_attr("height", "0");
+    fn write_header(&mut self, el: &Element) -> Result<()> {
+        writeln!(self.out, "<!doctype html><html><head>")?;
+        writeln!(self.out, "<meta charset='utf-8'>")?;
+        writeln!(self.out, "<script src='jquery.min.js'></script>")?;
+        writeln!(self.out, "<style type='text/css'>\n{}", LAYOUT_CSS)?;
+
+        if let Some(file) = el.get_attr("background") {
+            writeln!(self.out, "body {{ background-image: url('{}'); }}", file)?;
+        }
+        if let Some(color) = el.get_attr("bgcolor") {
+            writeln!(self.out, "body {{ background-color: {}; }}", color)?;
+        }
+
+        writeln!(self.out, "</style>")?;
+        writeln!(self.out, "</head><body>")?;
+        Ok(())
+    }
+
+    fn write_footer(&mut self) -> Result<()> {
+        // start all regions' first item
+        writeln!(self.out, "<script>$(document).ready(function() {{")?;
+        for rid in &self.animate_regions {
+            writeln!(self.out, "r{}_s0();", rid)?;
+        }
+        writeln!(self.out, "}});</script>")?;
+        // TODO: end of layout
+
+        writeln!(self.out, "</body></html>")?;
+        Ok(())
+    }
+
+    fn write_region(&mut self, region: &Element) -> Result<()> {
+        let rid = region.parse_attr("id")?;
+        let x = region.parse_attr("left")?;
+        let y = region.parse_attr("top")?;
+        let w = region.parse_attr("width")?;
+        let h = region.parse_attr("height")?;
+        let geom = [x, y, w, h];
 
         let mut sequence = Vec::new();
         for media in region.find_all("media") {
-            let id = media.def_attr("id", "");
-            let len = media.def_attr("duration", "").parse::<i32>().unwrap_or(10);
-            let opts = media.find("options").unwrap();
-            let mut start = "".into();
-            let mut trans = None;
-            match (media.get_attr("render"), media.get_attr("type")) {
-                (Some("html"), _) |
-                (_, Some("text")) |
-                (_, Some("ticker")) => {
-                    // TODO: override duration (comes from media properties)
-                    writeln!(out, "<iframe class='media r{}' id='m{}' src='{}.html' \
-                                   style='left: {}px; top: {}px;' width='{}' height='{}'></iframe>",
-                             rid, id, id, x, y, w, h)?;
-                }
-                (_, Some("webpage")) => {
-                    let url = percent_decode(media.find("options").unwrap().find("uri").unwrap().text());
-                    writeln!(out, "<iframe class='media r{}' id='m{}' src='{}' \
-                                   style='left: {}px; top: {}px;' width='{}' height='{}'></iframe>",
-                             rid, id, url, x, y, w, h)?;
-                }
-                (_, Some("image")) => {
-                    // TODO: handle alignment within region
-                    let filename = media.find("options").unwrap().find("uri").unwrap().text();
-                    writeln!(out, "<img class='media r{}' id='m{}' src='{}' \
-                                   style='left: {}px; top: {}px; width: {}px; height: {}px; {}{}'>",
-                             rid, id, filename, x, y, w, h, object_fit(opts), object_pos(opts))?;
-                }
-                (_, Some("video")) => {
-                    let filename = media.find("options").unwrap().find("uri").unwrap().text();
-                    writeln!(out, "<video class='media r{}' id='m{}' src='{}' muted \
-                                   style='left: {}px; top: {}px; {}{}' width='{}' height='{}'></video>",
-                             rid, id, filename, x, y, object_fit(opts), object_pos(opts), w, h)?;
-                    start = format!("$('#m{}')[0].play();", id);
-                    trans = Some(format!("$('#m{}')[0].onended = (e) => {{ e.target.fastSeek(0); ### }};", id));
-                }
-                _ => continue,
+            // TODO: transitions
+            match self.write_media(rid, geom, media) {
+                Err(e) => log::error!("layout: could not translate media: {:#}", e),
+                Ok(None) => continue,
+                Ok(Some(res)) => sequence.push(res),
             }
-            sequence.push((id, len, start, trans));
-
-            // TODO: transition
         }
 
-        writeln!(out, "<script>")?;
+        writeln!(self.out, "<script>")?;
         if sequence.len() > 1 {
+            for (i, (mid, duration, custom_start, custom_transition)) in sequence.iter().enumerate() {
+                writeln!(self.out, "function r{}_s{}() {{", rid, i)?;
+                writeln!(self.out, "$('.r{}').css('visibility', 'hidden'); \
+                                    $('#m{}').css('visibility', 'visible'); \
+                                    {}",
+                         rid, mid, custom_start)?;
 
-            for (i, (id, dur, start, trans)) in sequence.iter().enumerate() {
-                writeln!(out, "function r{}_s{}() {{", rid, i)?;
-
-                writeln!(out, "$('.r{}').css('visibility', 'hidden'); $('#m{}').css('visibility', 'visible'); {}",
-                         rid, id, start)?;
-
-                let next_fn = format!("r{}_s{}();", rid, if i == sequence.len() - 1 { 0 } else { i+1 });
-                if *dur != 0 {
-                    writeln!(out, "window.setTimeout(() => {{ {} }}, {});",
-                             next_fn, dur*1000)?;
+                let next_i = if i == sequence.len() - 1 { 0 } else { i+1 };
+                let next_fn = format!("r{}_s{}();", rid, next_i);
+                if let Some(tmpl) = custom_transition {
+                    writeln!(self.out, "{}", tmpl.replace("###", &next_fn))?;
                 }
-                if let Some(t) = trans {
-                    writeln!(out, "{}", t.replace("###", &next_fn))?;
+                if *duration != 0 {
+                    writeln!(self.out, "window.setTimeout(() => {{ {} }}, {});",
+                             next_fn, 1000 * duration)?;
                 }
-                writeln!(out, "}}")?;
+                writeln!(self.out, "}}")?;
             }
-            animate_regions.push(rid);
+            self.animate_regions.push(rid);
 
-        } else if let Some((id, _, start, _)) = sequence.pop() {
-            writeln!(out, "$('#m{}').css('visibility', 'visible'); {}", id, start)?;
+        } else if let Some((mid, _, custom_start, _)) = sequence.pop() {
+            writeln!(self.out, "$('#m{}').css('visibility', 'visible'); {}",
+                     mid, custom_start)?;
         }
-        writeln!(out, "</script>")?;
+        writeln!(self.out, "</script>")?;
 
         // TODO: options (loop, transition)
+        Ok(())
     }
 
-    writeln!(out, "<script>$(document).ready(function() {{")?;
-    for rid in animate_regions {
-        writeln!(out, "r{}_s0();", rid)?;
+    fn write_media(&mut self, rid: i32, [x, y, w, h]: [i32; 4],
+                   media: &Element) -> Result<Option<(i32, i32, String, Option<String>)>> {
+        let mid = media.parse_attr("id")?;
+        let opts = media.find("options").context("no options")?;
+        let len = media.def_attr("duration", "").parse::<i32>().unwrap_or(10);
+        let mut custom_start = "".into();
+        let mut custom_transition = None;
+        match (media.get_attr("render"), media.get_attr("type")) {
+            (Some("html"), _) |
+            (_, Some("text")) |
+            (_, Some("ticker")) => {
+                // TODO: override duration (comes from media properties)
+                writeln!(self.out, "<iframe class='media r{}' id='m{}' src='{}.html' \
+                                    style='left: {}px; top: {}px; width: {}px; \
+                                    height: {}px;'></iframe>",
+                         rid, mid, mid, x, y, w, h)?;
+            }
+            (_, Some("webpage")) => {
+                let url = percent_decode(opts.find("uri").context("no web uri")?.text());
+                writeln!(self.out, "<iframe class='media r{}' id='m{}' src='{}' \
+                                    style='left: {}px; top: {}px; width: {}px; \
+                                    height: {}px;'></iframe>",
+                         rid, mid, url, x, y, w, h)?;
+            }
+            (_, Some("image")) => {
+                let filename = opts.find("uri").context("no image uri")?.text();
+                writeln!(self.out, "<img class='media r{}' id='m{}' src='{}' \
+                                    style='left: {}px; top: {}px; width: {}px; \
+                                    height: {}px;{}{}'>",
+                         rid, mid, filename, x, y, w, h, object_fit(opts), object_pos(opts))?;
+            }
+            (_, Some("video")) => {
+                let filename = opts.find("uri").context("no video uri")?.text();
+                writeln!(self.out, "<video class='media r{}' id='m{}' src='{}' muted \
+                                    style='left: {}px; top: {}px; width: {}px; \
+                                    height: {}px;{}{}'></video>",
+                         rid, mid, filename, x, y, w, h, object_fit(opts), object_pos(opts))?;
+                custom_start = format!("$('#m{}')[0].play();", mid);
+                custom_transition = Some(format!("$('#m{}')[0].onended = (e) => {{ \
+                                                  e.target.fastSeek(0); ### }};", mid));
+            }
+            _ => {
+                log::warn!("unsupported media type: {:?}", media.get_attr("type"));
+                return Ok(None);
+            }
+        }
+        Ok(Some((mid, len, custom_start, custom_transition)))
     }
-    writeln!(out, "}});</script>")?;
-
-    // TODO: end of layout
-
-    writeln!(out, "</body></html>")?;
-    Ok(())
 }
 
 fn object_fit(el: &Element) -> &'static str {
     match el.def_attr("scaleType", "center") {
-        "stretch" => "object-fit: fill; ",
-        _ => "object-fit: contain; ",
+        "stretch" => " object-fit: fill;",
+        _ => " object-fit: contain;",
     }
 }
 
 fn object_pos(el: &Element) -> &'static str {
     match (el.def_attr("align", "center"), el.def_attr("halign", "center")) {
-        ("left", "top") => "object-position: left top; ",
-        ("left", "bottom") => "object-position: left bottom; ",
-        ("left", _) => "object-position: left; ",
-        ("right", "top") => "object-position: right top; ",
-        ("right", "bottom") => "object-position: right bottom; ",
-        ("right", _) => "object-position: right; ",
-        (_, "top") => "object-position: top; ",
-        (_, "bottom") => "object-position: bottom; ",
+        ("left", "top") => " object-position: left top;",
+        ("left", "bottom") => " object-position: left bottom;",
+        ("left", _) => " object-position: left;",
+        ("right", "top") => " object-position: right top;",
+        ("right", "bottom") => " object-position: right bottom;",
+        ("right", _) => " object-position: right;",
+        (_, "top") => " object-position: top;",
+        (_, "bottom") => " object-position: bottom;",
         _ => "",
     }
 }
