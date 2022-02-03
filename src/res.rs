@@ -176,7 +176,7 @@ impl Server {
     fn serve(dir: &PathBuf, req: &Request) -> Result<ResponseBox> {
         log::debug!("HTTP request: {}", req.url());
         Ok(match req.url() {
-            "/splash.jpg" => Response::from_data(SPLASH).boxed(),
+            "/splash.jpg" => Response::from_data(SPLASH_JPG).boxed(),
             "/splash.html" => Response::from_data(SPLASH_HTML).boxed(),
             path if path.starts_with("/layout?") => {
                 let id: i64 = path[8..].parse()?;
@@ -244,8 +244,6 @@ impl Server {
     }
 }
 
-const SPLASH: &[u8] = include_bytes!("../splash.jpg");
-
 const SPLASH_HTML: &[u8] = br#"<!doctype html>
 <html>
 <body style="margin: 0">
@@ -253,3 +251,5 @@ const SPLASH_HTML: &[u8] = br#"<!doctype html>
 </body>
 </html>
 "#;
+
+const SPLASH_JPG: &[u8] = include_bytes!("../assets/splash.jpg");

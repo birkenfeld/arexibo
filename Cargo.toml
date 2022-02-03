@@ -30,6 +30,7 @@ cairo-rs = { version = "0.15", features = ["png"] }
 glib = "0.15"
 gio = "0.15"
 gdk = "0.15"
+gdk-pixbuf = "0.15"
 gtk = "0.15"
 webkit2gtk = { version = "0.17", features = ["v2_8"] }
 

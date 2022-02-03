@@ -33,6 +33,7 @@ dependencies = [
  "crossbeam-channel",
  "elementtree",
  "gdk",
+ "gdk-pixbuf",
  "gio",
  "glib",
  "gtk",

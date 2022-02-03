@@ -4,21 +4,27 @@
 //! The GUI window.
 
 use std::convert::TryFrom;
+use std::io::Cursor;
 use anyhow::{anyhow, Result};
 use cairo::{ImageSurface, Surface};
 use crossbeam_channel::Sender;
 use glib::{clone, prelude::*};
+use gdk_pixbuf::Pixbuf;
 use gtk::{prelude::*, Inhibit, Window, WindowType};
 use webkit2gtk::{WebContext, WebView, UserContentManager, SnapshotRegion, SnapshotOptions};
 use webkit2gtk::traits::{UserContentManagerExt, SettingsExt, WebViewExt};
 use crate::collect::Update;
 use crate::config::PlayerSettings;
 
+const LOGO_PNG: &[u8] = include_bytes!("../assets/logo.png");
+
 
 pub fn run(settings: PlayerSettings,
            updates: glib::Receiver<Update>, snaps: Sender<Vec<u8>>) -> Result<()> {
     gtk::init().expect("failed to init gtk");
     let base_uri = format!("http://localhost:{}/", settings.embedded_server_port);
+
+    let logo = Pixbuf::from_read(Cursor::new(LOGO_PNG))?;
 
     let window = Window::new(WindowType::Toplevel);
     let context = WebContext::default().unwrap();
@@ -44,6 +50,7 @@ pub fn run(settings: PlayerSettings,
     window.add(&webview);
     window.set_decorated(false);
     window.set_title(&settings.display_name);
+    window.set_icon(Some(&logo));
     window.fullscreen();
     window.show_all();
 
