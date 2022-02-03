@@ -81,8 +81,9 @@ pub fn translate(xlf: &Path, html: &Path) -> Result<()> {
                              id, media.find("options").unwrap().find("uri").unwrap().text(), w)?;
                 }
                 (_, Some("video")) => {
+                    let filename = media.find("options").unwrap().find("uri").unwrap().text();
                     writeln!(out, "<video class='media' id='m{}' src='{}' muted width='{}'></video>",
-                             id, media.find("options").unwrap().find("uri").unwrap().text(), w)?;
+                             id, filename, w)?;
                     start = format!("$('#m{}')[0].play();", id);
                     trans = Some(format!("$('#m{}')[0].onended = () => {{ ### }};", id));
                 }

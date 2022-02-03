@@ -3,11 +3,11 @@
 
 //! Handling resources such as media and layout files.
 
-use std::{fs, io::Read};
+use std::{sync::Arc, fs, io::Read, io::Seek, thread};
 use std::path::PathBuf;
 use anyhow::{anyhow, bail, Result};
 use md5::{Md5, Digest};
-use tiny_http::{Request, Response, ResponseBox};
+use tiny_http::{Request, Response, ResponseBox, Header, StatusCode};
 use ureq::Agent;
 use crate::xmds;
 use crate::layout;
@@ -153,28 +153,36 @@ impl Server {
         Ok(Self { dir, server })
     }
 
-    pub fn run(self) {
-        for req in self.server.incoming_requests() {
-            match self.serve(&req) {
-                Ok(resp) => {  let _ = req.respond(resp); }
-                Err(e) => {
-                    log::warn!("processing HTTP req {}: {:#}", req.url(), e);
-                    let _ = req.respond(Response::empty(500));
+    pub fn start_pool(self) {
+        let server = Arc::new(self.server);
+        for _ in 0..4 {
+            let server = server.clone();
+            let dir = self.dir.clone();
+            thread::spawn(move || {
+                loop {
+                    let req = server.recv().unwrap();
+                    match Self::serve(&dir, &req) {
+                        Ok(resp) => {  let _ = req.respond(resp); }
+                        Err(e) => {
+                            log::warn!("processing HTTP req {}: {:#}", req.url(), e);
+                            let _ = req.respond(Response::empty(500));
+                        }
+                    }
                 }
-            }
-        };
+            });
+        }
     }
 
-    fn serve(&self, req: &Request) -> Result<ResponseBox> {
+    fn serve(dir: &PathBuf, req: &Request) -> Result<ResponseBox> {
         log::debug!("HTTP request: {}", req.url());
         Ok(match req.url() {
             "/splash.jpg" => Response::from_data(SPLASH).boxed(),
             "/splash.html" => Response::from_data(SPLASH_HTML).boxed(),
             path if path.starts_with("/layout?") => {
                 let id: i64 = path[8..].parse()?;
-                let htmlpath = self.dir.join(format!("{}.xlf.html", id));
+                let htmlpath = dir.join(format!("{}.xlf.html", id));
                 if !htmlpath.is_file() {
-                    let xlfpath = self.dir.join(format!("{}.xlf", id));
+                    let xlfpath = dir.join(format!("{}.xlf", id));
                     if xlfpath.is_file() {
                         log::info!("requested layout {}, needs processing", id);
                         layout::translate(&xlfpath, &htmlpath)?;
@@ -188,15 +196,49 @@ impl Server {
                 }
             },
             path => {
-                let path = self.dir.join(&path[1..]);
-                if path.is_file() {
-                    Response::from_file(fs::File::open(path)?)
-                        // need a response with Content-Length
-                        .with_chunked_threshold(usize::MAX)
-                        .boxed()
-                } else {
-                    Response::empty(404).boxed()
+                let path = dir.join(&path[1..]);
+                if !path.is_file() {
+                    return Ok(Response::empty(404).boxed());
                 }
+                let mut fp = fs::File::open(&path)?;
+
+                // implement HTTP Range query for gstreamer
+                for h in req.headers() {
+                    if h.field.equiv("Range") {
+                        let total_size = fp.metadata()?.len();
+                        let requested = h.value.to_string();
+                        let mut parts = requested.split(&['=', '-'][..]);
+                        let (from, to) = match (parts.next(), parts.next(), parts.next()) {
+                            (Some("bytes"), Some(from), Some(to)) => {
+                                (from.parse().unwrap_or(0), to.parse().unwrap_or(total_size - 1))
+                            }
+                            _ => bail!("invalid Range header")
+                        };
+                        if ! (from <= to && to < total_size) {
+                            bail!("invalid Range from/to")
+                        }
+                        let size = to - from + 1;
+                        fp.seek(std::io::SeekFrom::Start(from))?;
+                        let stream = fp.take(size);
+
+                        let range = format!("bytes {}-{}/{}", from, to, total_size);
+                        return Ok(Response::new(
+                            StatusCode(206),
+                            vec![
+                                Header::from_bytes(&b"Content-Range"[..],
+                                                   range.as_bytes()).unwrap(),
+                            ],
+                            stream,
+                            Some(size as usize),
+                            None
+                        ).boxed());
+                    }
+                }
+
+                Response::from_file(fp)
+                    // for gstreamer, need a response with Content-Length => no chunked
+                    .with_chunked_threshold(usize::MAX)
+                    .boxed()
             }
         })
     }

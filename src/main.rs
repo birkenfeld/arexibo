@@ -73,8 +73,7 @@ fn main_inner() -> anyhow::Result<()> {
 
     let webserver = res::Server::new(workdir.join("res"), settings.embedded_server_port)
         .context("creating internal HTTP server")?;
-
-    thread::spawn(|| webserver.run());
+    webserver.start_pool();
 
     #[cfg(feature = "gui")]
     {

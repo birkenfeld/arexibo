@@ -10,7 +10,7 @@ use crossbeam_channel::Sender;
 use glib::{clone, prelude::*};
 use gtk::{prelude::*, Inhibit, Window, WindowType};
 use webkit2gtk::{WebContext, WebView, UserContentManager, SnapshotRegion, SnapshotOptions};
-use webkit2gtk::traits::{WebViewExt, UserContentManagerExt};
+use webkit2gtk::traits::{UserContentManagerExt, SettingsExt, WebViewExt};
 use crate::collect::Update;
 use crate::config::PlayerSettings;
 
@@ -35,8 +35,8 @@ pub fn run(settings: PlayerSettings,
         .user_content_manager(&manager)
         .build();
 
-    // let ws = WebViewExt::settings(&webview).unwrap();
-    // ws.set_enable_developer_extras(true);
+    let ws = WebViewExt::settings(&webview).unwrap();
+    ws.set_enable_developer_extras(true);
     // let inspector = webview.inspector().unwrap();
     // inspector.show();
 
