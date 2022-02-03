@@ -29,10 +29,10 @@ pub fn run(settings: PlayerSettings,
     let window = Window::new(WindowType::Toplevel);
     let context = WebContext::default().unwrap();
     let manager = UserContentManager::new();
-    manager.connect("script-message-received::xibo", false, |args| {
-        let arg = args[1].get::<webkit2gtk::JavascriptResult>().unwrap();
-        let ctx = arg.global_context().unwrap();
-        println!("MSG! {:?}", arg.value().unwrap().to_string(&ctx).unwrap());
+    manager.connect("script-message-received::xibo", false, |_args| {
+        // let arg = args[1].get::<webkit2gtk::JavascriptResult>().unwrap();
+        // let ctx = arg.global_context().unwrap();
+        // arg.value(&ctx)
         None
     });
     manager.register_script_message_handler("xibo");

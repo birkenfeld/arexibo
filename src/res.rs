@@ -10,7 +10,7 @@ use md5::{Md5, Digest};
 use tiny_http::{Request, Response, ResponseBox, Header, StatusCode};
 use ureq::Agent;
 use crate::xmds;
-use crate::layout;
+// use crate::layout;
 
 #[derive(Debug, Clone, Copy)]
 pub enum FileType {
@@ -185,7 +185,7 @@ impl Server {
                     let xlfpath = dir.join(format!("{}.xlf", id));
                     if xlfpath.is_file() {
                         log::info!("requested layout {}, needs processing", id);
-                        layout::translate(&xlfpath, &htmlpath)?;
+                        // layout::translate(&xlfpath, &htmlpath)?;
                         //     .context("translating layout")?;
                         Response::from_file(fs::File::open(htmlpath)?).boxed()
                     } else {
@@ -235,9 +235,24 @@ impl Server {
                     }
                 }
 
+                let ctype = match path.extension().and_then(|e| e.to_str()) {
+                    Some("html") => "text/html",
+                    Some("js") => "text/javascript",
+                    Some("ttf") | Some("otf") => "application/font-sfnt",
+                    Some("png") => "image/png",
+                    Some("jpg") | Some("jpeg") => "image/jpeg",
+                    Some("pdf") => "application/pdf",
+                    Some("mp4") => "video/mp4",
+                    Some("avi") => "video/avi",
+                    Some("ogv") => "video/ogg",
+                    Some("webm") => "video/webm",
+                    _ => "",
+                };
+
                 Response::from_file(fp)
                     // for gstreamer, need a response with Content-Length => no chunked
                     .with_chunked_threshold(usize::MAX)
+                    .with_header(Header::from_bytes(&b"Content-Type"[..], ctype.as_bytes()).unwrap())
                     .boxed()
             }
         })
@@ -253,3 +268,8 @@ const SPLASH_HTML: &[u8] = br#"<!doctype html>
 "#;
 
 const SPLASH_JPG: &[u8] = include_bytes!("../assets/splash.jpg");
+
+
+// TODO:
+// - central + persisted storage of media info, layout info
+// - move server to own module

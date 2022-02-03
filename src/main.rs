@@ -8,7 +8,7 @@ pub mod gui;
 pub mod config;
 pub mod collect;
 pub mod sched;
-pub mod layout;
+// pub mod layout;
 pub mod xmds;
 pub mod xmr;
 pub mod res;
