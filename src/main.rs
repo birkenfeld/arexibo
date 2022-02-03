@@ -7,11 +7,12 @@
 pub mod gui;
 pub mod config;
 pub mod collect;
-pub mod sched;
+pub mod server;
+pub mod resource;
+pub mod schedule;
 // pub mod layout;
 pub mod xmds;
 pub mod xmr;
-pub mod res;
 pub mod util;
 
 use std::path::PathBuf;
@@ -74,7 +75,7 @@ fn main_inner() -> anyhow::Result<()> {
 
     // TODO: prevent sleep
 
-    let webserver = res::Server::new(workdir.join("res"), settings.embedded_server_port)
+    let webserver = server::Server::new(workdir.join("res"), settings.embedded_server_port)
         .context("creating internal HTTP server")?;
     webserver.start_pool();
 

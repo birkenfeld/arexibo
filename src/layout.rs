@@ -91,7 +91,7 @@ pub fn translate(xlf: &Path, html: &Path) -> Result<()> {
             }
             sequence.push((id, len, start, trans));
 
-            // TODO: <options>
+            // TODO: transition
         }
 
         writeln!(out, "<script>")?;
@@ -120,7 +120,7 @@ pub fn translate(xlf: &Path, html: &Path) -> Result<()> {
         }
         writeln!(out, "</script>")?;
 
-        // TODO: <options>
+        // TODO: options (loop, transition)
     }
 
     writeln!(out, "<script>$(document).ready(function() {{")?;
@@ -128,6 +128,8 @@ pub fn translate(xlf: &Path, html: &Path) -> Result<()> {
         writeln!(out, "r{}_s0();", rid)?;
     }
     writeln!(out, "}});</script>")?;
+
+    // TODO: end of layout
 
     writeln!(out, "</body></html>")?;
     Ok(())

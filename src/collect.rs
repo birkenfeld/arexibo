@@ -11,8 +11,9 @@ use crossbeam_channel::{after, never, select, tick, Receiver};
 use rand::rngs::OsRng;
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::{FromPrivateKey, ToPrivateKey, ToPublicKey}};
 use crate::config::{CmsSettings, PlayerSettings};
-use crate::{res, xmds, xmr};
-use crate::sched::Schedule;
+use crate::{xmds, xmr};
+use crate::resource::Cache;
+use crate::schedule::Schedule;
 
 /// Messages sent to the GUI thread
 pub enum Update {
@@ -26,7 +27,7 @@ pub struct Handler {
     snaps: Receiver<Vec<u8>>,
     settings: PlayerSettings,
     xmds: xmds::Cms,
-    cache: res::Cache,
+    cache: Cache,
     xmr: Receiver<xmr::Message>,
     schedule: Schedule,
     layouts: Vec<i64>,
@@ -36,7 +37,7 @@ impl Handler {
     pub fn new(cms: CmsSettings, workdir: &Path, updates: glib::Sender<Update>,
                snaps: Receiver<Vec<u8>>) -> Result<Self> {
         let (privkey, pubkey) = load_or_create_keypair(&workdir)?;
-        let cache = res::Cache::new(workdir.join("res")).context("creating cache")?;
+        let cache = Cache::new(workdir.join("res")).context("creating cache")?;
         let schedule = Schedule::default();
         let layouts = Default::default();
 

@@ -12,8 +12,8 @@ use anyhow::{bail, Context, Result};
 use elementtree::Element;
 use crate::config::{CmsSettings, PlayerSettings};
 use crate::util::{Base64Field, ElementExt};
-use crate::res::{FileType, Resource};
-use crate::sched::Schedule;
+use crate::resource::{FileType, Resource};
+use crate::schedule::Schedule;
 
 pub struct Cms {
     service: soap::Service,
