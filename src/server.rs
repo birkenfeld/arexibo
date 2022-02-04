@@ -47,7 +47,7 @@ impl Server {
         Ok(match req.url() {
             // built-in files?
             "/splash.jpg" => Response::from_data(SPLASH_JPG).boxed(),
-            "/splash.html" => Response::from_data(SPLASH_HTML).boxed(),
+            "/0.xlf.html" => Response::from_data(SPLASH_HTML).boxed(),
 
             // any other static files
             path => {

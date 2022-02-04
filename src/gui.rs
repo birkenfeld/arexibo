@@ -5,13 +5,15 @@
 
 use std::convert::TryFrom;
 use std::io::Cursor;
+use std::{cell::RefCell, rc::Rc};
 use anyhow::{anyhow, Result};
 use cairo::{ImageSurface, Surface};
 use crossbeam_channel::Sender;
 use glib::{clone, prelude::*};
 use gdk_pixbuf::Pixbuf;
 use gtk::{prelude::*, Inhibit, Window, WindowType};
-use webkit2gtk::{WebContext, WebView, UserContentManager, SnapshotRegion, SnapshotOptions};
+use webkit2gtk::{WebContext, WebView, UserContentManager, SnapshotRegion, SnapshotOptions,
+                 JavascriptResult};
 use webkit2gtk::traits::{UserContentManagerExt, SettingsExt, WebViewExt, WebInspectorExt};
 use crate::collect::Update;
 use crate::config::PlayerSettings;
@@ -29,12 +31,6 @@ pub fn run(settings: PlayerSettings, inspect: bool,
     let window = Window::new(WindowType::Toplevel);
     let context = WebContext::default().unwrap();
     let manager = UserContentManager::new();
-    manager.connect("script-message-received::xibo", false, |_args| {
-        // let arg = args[1].get::<webkit2gtk::JavascriptResult>().unwrap();
-        // let ctx = arg.global_context().unwrap();
-        // arg.value(&ctx)
-        None
-    });
     manager.register_script_message_handler("xibo");
     let webview = WebView::builder()
         .web_context(&context)
@@ -48,7 +44,7 @@ pub fn run(settings: PlayerSettings, inspect: bool,
         inspector.show();
     }
 
-    webview.load_uri(&format!("{}splash.html", base_uri));
+    webview.load_uri(&format!("{}0.xlf.html", base_uri));
     window.add(&webview);
     window.set_decorated(false);
     window.set_title(&settings.display_name);
@@ -66,6 +62,30 @@ pub fn run(settings: PlayerSettings, inspect: bool,
         gtk::main_quit();
         Inhibit(false)
     });
+
+    let schedule = Rc::new(RefCell::new(Schedule::default()));
+
+    manager.connect_local("script-message-received::xibo", false, clone!(
+        @strong schedule, @strong base_uri, @weak webview => @default-return None,
+        move |args| {
+            if let Some(arg) = args.get(1).and_then(|a| a.get::<JavascriptResult>().ok()) {
+                if let Some(ctx) = arg.global_context() {
+                    if let Some(event) = arg.value().and_then(|v| v.to_string(&ctx)) {
+                        match &*event {
+                            "layout_done" => {
+                                if let Some(id) = schedule.borrow_mut().next() {
+                                    log::info!("showing next layout: {}", id);
+                                    webview.load_uri(&format!("{}{}.xlf.html", base_uri, id));
+                                }
+                            }
+                            _ => ()
+                        }
+                    }
+                }
+            }
+            None
+        }
+    ));
 
     updates.attach(None, clone!(
         @weak webview, @weak window => @default-return Continue(true),
@@ -86,10 +106,12 @@ pub fn run(settings: PlayerSettings, inspect: bool,
                     window.set_title(&settings.display_name);
                     apply_size(&window, settings);
                 }
-                Update::Layouts(layouts) => if let Some(id) = layouts.first() {
-                    log::info!("showing layout: {}", id);
+                Update::Layouts(new_layouts) => {
                     // TODO: adapt webview scale to actual vs. designed size
-                    webview.load_uri(&format!("{}{}.xlf.html", base_uri, id));
+                    if let Some(id) = schedule.borrow_mut().update(new_layouts) {
+                        log::info!("new schedule, showing layout: {}", id);
+                        webview.load_uri(&format!("{}{}.xlf.html", base_uri, id));
+                    }
                 }
             }
             Continue(true)
@@ -118,4 +140,63 @@ fn convert_shot(surface_result: std::result::Result<Surface, glib::Error>) -> Re
     let mut vec = Vec::new();
     img.write_to_png(&mut vec)?;
     Ok(vec)
+}
+
+
+/// Keeps track of scheduled layouts and the currently shown one.
+#[derive(Debug, Default)]
+struct Schedule<T> {
+    index: Option<usize>,
+    layouts: Vec<T>,
+}
+
+impl<T: Eq + Default + Clone> Schedule<T> {
+    /// Update the scheduled layouts and return Some(id) if we need to change
+    fn update(&mut self, new: Vec<T>) -> Option<T> {
+        // determine the currently shown layout
+        let cur_id = self.index.map(|i| self.layouts[i].clone()).unwrap_or_default();
+        self.layouts = new;
+
+        // if this layout is also in the new schedule, keep it
+        if let Some(new_index) = self.layouts.iter().position(|id| id == &cur_id) {
+            self.index = Some(new_index);
+            None
+        } else if !self.layouts.is_empty() {
+            // otherwise, start showing the first of the new layouts if we have some
+            self.index = Some(0);
+            Some(self.layouts[0].clone())
+        } else {
+            // as last resort, show the splash screen
+            self.index = None;
+            Some(Default::default())
+        }
+    }
+
+    /// Go to the next layout, if more than one is scheduled, and return Some(id)
+    fn next(&mut self) -> Option<T> {
+        let nlayouts = self.layouts.len();
+        // if there is no layout or only one scheduled, no change
+        if nlayouts < 2 {
+            None
+        } else {
+            // otherwise just go further in the schedule
+            let new_index = (self.index.unwrap() + 1) % nlayouts;
+            self.index = Some(new_index);
+            Some(self.layouts[new_index].clone())
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn test_schedule() {
+    let mut schedule = Schedule { index: None, layouts: vec![] };
+    assert_eq!(schedule.next(), None);
+    assert_eq!(schedule.update(vec![]), Some(0));
+    assert_eq!(schedule.update(vec![1]), Some(1));
+    assert_eq!(schedule.update(vec![1]), None);
+    assert_eq!(schedule.update(vec![2, 1, 3]), None);
+    assert_eq!(schedule.next(), Some(3));
+    assert_eq!(schedule.next(), Some(2));
+    assert_eq!(schedule.update(vec![1, 3]), Some(1));
 }

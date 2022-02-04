@@ -9,6 +9,12 @@ use anyhow::{Context, Result};
 use elementtree::Element;
 use crate::util::{ElementExt, percent_decode};
 
+// TODO:
+// - transitions
+// - reloading resources in iframes
+// - overriding duration from resources
+
+
 const LAYOUT_CSS: &str = r#"
 body { margin: 0; background-repeat: no-repeat; overflow: hidden; }
 iframe { border: 0 }
@@ -16,11 +22,23 @@ iframe { border: 0 }
 p { margin-top: 0; }
 "#;
 
+const SCRIPT: &str = r#"
+var regions_done = {};
+var regions_total = 0;
+function region_done(rid) {
+  regions_done[rid] = 1;
+  if (Object.keys(regions_done).length == regions_total) {
+    window.webkit.messageHandlers.xibo.postMessage("layout_done");
+    regions_total = 0;  // no more messages
+  }
+}
+"#;
+
 
 pub struct Translator {
     tree: Option<Element>,
     out: BufWriter<fs::File>,
-    animate_regions: Vec<i32>,
+    regions: Vec<i32>,
 }
 
 impl Translator {
@@ -31,7 +49,7 @@ impl Translator {
         let out = fs::File::create(html)?;
         let out = BufWriter::new(out);
 
-        Ok(Self { tree, out, animate_regions: Vec::new() })
+        Ok(Self { tree, out, regions: Vec::new() })
     }
 
     pub fn translate(mut self) -> Result<()> {
@@ -47,10 +65,11 @@ impl Translator {
     }
 
     fn write_header(&mut self, el: &Element) -> Result<()> {
-        writeln!(self.out, "<!doctype html><html><head>")?;
+        writeln!(self.out, "<!doctype html>\n<html><head>")?;
         writeln!(self.out, "<meta charset='utf-8'>")?;
         writeln!(self.out, "<script src='jquery.min.js'></script>")?;
-        writeln!(self.out, "<style type='text/css'>\n{}", LAYOUT_CSS)?;
+        writeln!(self.out, "<script type='text/javascript'>{}</script>", SCRIPT)?;
+        writeln!(self.out, "<style type='text/css'>{}", LAYOUT_CSS)?;
 
         if let Some(file) = el.get_attr("background") {
             writeln!(self.out, "body {{ background-image: url('{}'); }}", file)?;
@@ -66,13 +85,11 @@ impl Translator {
 
     fn write_footer(&mut self) -> Result<()> {
         // start all regions' first item
-        writeln!(self.out, "<script>$(document).ready(function() {{")?;
-        for rid in &self.animate_regions {
-            writeln!(self.out, "r{}_s0();", rid)?;
+        writeln!(self.out, "<script type='text/javascript'>\n$(document).ready(function() {{")?;
+        for rid in &self.regions {
+            writeln!(self.out, "  r{}_s0(true);", rid)?;
         }
-        writeln!(self.out, "}});</script>")?;
-        // TODO: end of layout
-
+        writeln!(self.out, "}});\n</script>")?;
         writeln!(self.out, "</body></html>")?;
         Ok(())
     }
@@ -85,45 +102,52 @@ impl Translator {
         let h = region.parse_attr("height")?;
         let geom = [x, y, w, h];
 
+        writeln!(self.out, "<!-- region {} -->", rid)?;
         let mut sequence = Vec::new();
         for media in region.find_all("media") {
-            // TODO: transitions
             match self.write_media(rid, geom, media) {
                 Err(e) => log::error!("layout: could not translate media: {:#}", e),
                 Ok(None) => continue,
                 Ok(Some(res)) => sequence.push(res),
             }
         }
+        let nitems = sequence.len();
 
-        writeln!(self.out, "<script>")?;
-        if sequence.len() > 1 {
-            for (i, (mid, duration, custom_start, custom_transition)) in sequence.iter().enumerate() {
-                writeln!(self.out, "function r{}_s{}() {{", rid, i)?;
-                writeln!(self.out, "$('.r{}').css('visibility', 'hidden'); \
-                                    $('#m{}').css('visibility', 'visible'); \
-                                    {}",
-                         rid, mid, custom_start)?;
+        if nitems == 0 {
+            return Ok(());
+        }
 
-                let next_i = if i == sequence.len() - 1 { 0 } else { i+1 };
-                let next_fn = format!("r{}_s{}();", rid, next_i);
-                if let Some(tmpl) = custom_transition {
-                    writeln!(self.out, "{}", tmpl.replace("###", &next_fn))?;
-                }
-                if *duration != 0 {
-                    writeln!(self.out, "window.setTimeout(() => {{ {} }}, {});",
-                             next_fn, 1000 * duration)?;
-                }
-                writeln!(self.out, "}}")?;
+        writeln!(self.out, "<script type='text/javascript'>")?;
+        writeln!(self.out, "regions_total += 1;")?;
+        // for each media, create a function to display it and schedule the next one
+        for (i, (mid, duration, custom_start, custom_transition)) in sequence.iter().enumerate() {
+            writeln!(self.out, "function r{}_s{}(first) {{", rid, i)?;
+
+            // when the first media is called for the second time, the region is "done"
+            if i == 0 {
+                writeln!(self.out, "  if (!first) {{ region_done('r{}'); }}", rid)?;
             }
-            self.animate_regions.push(rid);
 
-        } else if let Some((mid, _, custom_start, _)) = sequence.pop() {
-            writeln!(self.out, "$('#m{}').css('visibility', 'visible'); {}",
-                     mid, custom_start)?;
+            // if only one item is present, don't need to hide the others
+            if nitems > 1 {
+                writeln!(self.out, "  $('.r{}').css('visibility', 'hidden');", rid)?;
+            }
+            writeln!(self.out, "  $('#m{}').css('visibility', 'visible'); {}", mid, custom_start)?;
+
+            // schedule the next one: either after duration, or with custom code
+            let next_i = if i == sequence.len() - 1 { 0 } else { i+1 };
+            let next_fn = format!("r{}_s{}();", rid, next_i);
+            if let Some(tmpl) = custom_transition {
+                writeln!(self.out, "  {}", tmpl.replace("###", &next_fn))?;
+            }
+            if *duration != 0 {
+                writeln!(self.out, "  window.setTimeout(() => {{ {} }}, {});",
+                         next_fn, 1000 * duration)?;
+            }
+            writeln!(self.out, "}}")?;
         }
         writeln!(self.out, "</script>")?;
-
-        // TODO: options (loop, transition)
+        self.regions.push(rid);
         Ok(())
     }
 
@@ -134,11 +158,11 @@ impl Translator {
         let len = media.def_attr("duration", "").parse::<i32>().unwrap_or(10);
         let mut custom_start = "".into();
         let mut custom_transition = None;
+        writeln!(self.out, "  <!-- media {} -->", mid)?;
         match (media.get_attr("render"), media.get_attr("type")) {
             (Some("html"), _) |
             (_, Some("text")) |
             (_, Some("ticker")) => {
-                // TODO: override duration (comes from media properties)
                 writeln!(self.out, "<iframe class='media r{}' id='m{}' src='{}.html' \
                                     style='left: {}px; top: {}px; width: {}px; \
                                     height: {}px;'></iframe>",
@@ -185,7 +209,7 @@ fn object_fit(el: &Element) -> &'static str {
 }
 
 fn object_pos(el: &Element) -> &'static str {
-    match (el.def_attr("align", "center"), el.def_attr("halign", "center")) {
+    match (el.def_attr("align", "center"), el.def_attr("halign", "middle")) {
         ("left", "top") => " object-position: left top;",
         ("left", "bottom") => " object-position: left bottom;",
         ("left", _) => " object-position: left;",
