@@ -58,7 +58,7 @@ pub struct CmsSettings {
     pub address: String,
     pub key: String,
     pub display_id: String,
-    // TODO: Proxy
+    pub proxy: Option<String>,
 }
 
 impl CmsSettings {
@@ -75,5 +75,15 @@ impl CmsSettings {
     pub fn xmr_channel(&self) -> String {
         let to_hash = format!("{}{}{}", self.address, self.key, self.display_id);
         hex::encode(&Md5::digest(&to_hash))
+    }
+
+    pub fn make_agent(&self) -> Result<ureq::Agent> {
+        Ok(if let Some(proxy) = &self.proxy {
+            ureq::AgentBuilder::new()
+                .proxy(ureq::Proxy::new(proxy)?)
+                .build()
+        } else {
+            ureq::Agent::new()
+        })
     }
 }

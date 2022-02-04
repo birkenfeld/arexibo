@@ -103,8 +103,8 @@ use crate::util::Base64Field;
 }}
 
 impl Service {{
-    pub fn new(baseuri: String) -> Self {{
-        Self {{ baseuri, agent: Agent::new() }}
+    pub fn new(baseuri: String, agent: Agent) -> Self {{
+        Self {{ baseuri, agent }}
     }}
 
     fn request<T: FromStr<Err = anyhow::Error> + fmt::Debug>(&mut self, name: &str, body: impl fmt::Display) -> Result<T>

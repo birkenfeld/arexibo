@@ -28,15 +28,16 @@ pub struct Cms {
 }
 
 impl Cms {
-    pub fn new(settings: &CmsSettings, pub_key: String) -> Self {
-        Self {
-            service: soap::Service::new(format!("{}/xmds.php?v=5", settings.address)),
+    pub fn new(cms: &CmsSettings, pub_key: String) -> Result<Self> {
+        Ok(Self {
+            service: soap::Service::new(format!("{}/xmds.php?v=5", cms.address),
+                                        cms.make_agent()?),
             mac_addr: retrieve_mac().unwrap_or("00:00:00:00:00:00".into()),
-            channel: settings.xmr_channel(),
-            cms_key: settings.key.to_owned(),
-            hw_key: settings.display_id.to_owned(),
+            channel: cms.xmr_channel(),
+            cms_key: cms.key.to_owned(),
+            hw_key: cms.display_id.to_owned(),
             pub_key
-        }
+        })
     }
 
     pub fn register_display(&mut self) -> Result<Option<PlayerSettings>> {

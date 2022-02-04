@@ -10,6 +10,7 @@ use md5::{Md5, Digest};
 use serde::{Serialize, Deserialize};
 use ureq::Agent;
 use crate::{util, layout, xmds};
+use crate::config::CmsSettings;
 
 
 /// An entry in the "required files" set.
@@ -90,7 +91,7 @@ pub struct Cache {
 }
 
 impl Cache {
-    pub fn new(dir: PathBuf, clear: bool) -> Result<Self> {
+    pub fn new(cms: &CmsSettings, dir: PathBuf, clear: bool) -> Result<Self> {
         let mut content = HashMap::new();
 
         if !fs::metadata(&dir).map_or(false, |p| p.is_dir()) {
@@ -111,8 +112,7 @@ impl Cache {
             content.retain(|fname, _| dir.join(fname).is_file());
         }
 
-        let agent = Agent::new();
-        Ok(Self { dir, agent, content })
+        Ok(Self { dir, agent: cms.make_agent()?, content })
     }
 
     pub fn has(&self, res: &ReqFile) -> bool {
