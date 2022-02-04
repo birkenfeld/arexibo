@@ -182,7 +182,7 @@ impl Handler {
             "trace" => log::set_max_level(log::LevelFilter::Trace),
             "debug" => log::set_max_level(log::LevelFilter::Debug),
             "info" => log::set_max_level(log::LevelFilter::Info),
-            "error" => log::set_max_level(log::LevelFilter::Error),
+            "error" => log::set_max_level(log::LevelFilter::Warn),
             "off" => log::set_max_level(log::LevelFilter::Off),
             s => log::error!("invalid log level {}", s)
         }
