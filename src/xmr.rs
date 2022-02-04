@@ -121,7 +121,7 @@ fn deserialize_datetime<'de, D: Deserializer<'de>>(d: D) -> std::result::Result<
 
 fn decrypt_private_key(enc_key: &[u8], private_key: &RsaPrivateKey) -> Result<Vec<u8>> {
     let padding = rsa::PaddingScheme::new_pkcs1v15_encrypt();
-    let dec_data = private_key.decrypt(padding, &enc_key).context("failed to decrypt PK")?;
+    let dec_data = private_key.decrypt(padding, enc_key).context("failed to decrypt PK")?;
     Ok(dec_data)
 }
 

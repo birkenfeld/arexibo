@@ -3,7 +3,7 @@
 
 //! Schedule parsing and scheduling.
 
-use std::sync::Arc;
+use std::{cmp::Ordering, sync::Arc};
 use anyhow::{Context, Result};
 use chrono::{NaiveDateTime, Local};
 use elementtree::Element;
@@ -34,7 +34,7 @@ impl Schedule {
             schedules.push((from, to, id, prio));
         }
         let mut default = None;
-        for def in tree.find("default") {
+        if let Some(def) = tree.find("default") {
             default = Some(def.parse_attr("file")?);
         }
 
@@ -50,11 +50,13 @@ impl Schedule {
         let mut layouts = Vec::new();
         for &(from, to, lid, prio) in &self.schedules {
             if from >= now && now <= to {
-                if prio < cur_prio {
-                    continue;
-                } else if prio > cur_prio {
-                    cur_prio = prio;
-                    layouts.clear();
+                match prio.cmp(&cur_prio) {
+                    Ordering::Less => continue,
+                    Ordering::Greater => {
+                        cur_prio = prio;
+                        layouts.clear();
+                    }
+                    _ => ()
                 }
                 if let Some(info) = cache.get_layout(lid) {
                     layouts.push(info);

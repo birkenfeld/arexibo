@@ -35,6 +35,8 @@ function region_done(rid) {
 "#;
 
 
+type MediaInfo = (i32, i32, String, Option<String>);
+
 pub struct Translator {
     tree: Option<Element>,
     out: BufWriter<fs::File>,
@@ -155,7 +157,7 @@ impl Translator {
     }
 
     fn write_media(&mut self, rid: i32, [x, y, w, h]: [i32; 4],
-                   media: &Element) -> Result<Option<(i32, i32, String, Option<String>)>> {
+                   media: &Element) -> Result<Option<MediaInfo>> {
         let mid = media.parse_attr("id")?;
         let opts = media.find("options").context("no options")?;
         let len = media.def_attr("duration", "").parse::<i32>().unwrap_or(10);

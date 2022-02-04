@@ -32,7 +32,7 @@ impl Cms {
         Ok(Self {
             service: soap::Service::new(format!("{}/xmds.php?v=5", cms.address),
                                         cms.make_agent()?),
-            mac_addr: retrieve_mac().unwrap_or("00:00:00:00:00:00".into()),
+            mac_addr: retrieve_mac().unwrap_or_else(|| "00:00:00:00:00:00".into()),
             channel: cms.xmr_channel(),
             cms_key: cms.key.to_owned(),
             hw_key: cms.display_id.to_owned(),
@@ -47,7 +47,7 @@ impl Cms {
                 hardwareKey: &self.hw_key,
                 displayName: "Rust Display",
                 clientType: "linux",
-                clientVersion: &clap::crate_version!(),
+                clientVersion: clap::crate_version!(),
                 clientCode: 0,
                 operatingSystem: "linux",
                 macAddress: &self.mac_addr,

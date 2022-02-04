@@ -20,7 +20,6 @@ use anyhow::{bail, Context, Result};
 use elementtree::Element;
 use ureq::Agent;
 use crate::util::Base64Field;
-
 ";
 
 const SERVICE_IMPL: &str = r###"pub struct Service {
@@ -52,7 +51,6 @@ impl Service {
     .into_string().with_context(|| format!("decoding {} SOAP response", name))?
     .parse().with_context(|| format!("parsing {} SOAP response", name))
     }
-
 "###;
 
 fn main() {
@@ -62,7 +60,7 @@ fn main() {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let mut out = File::create(out_dir.join("xmds_soap.rs")).unwrap();
 
-    write!(out, "{}", HEADER).unwrap();
+    writeln!(out, "{}", HEADER).unwrap();
 
     // Go through all messages
     for msg in tree.find_all(MESSAGE) {
@@ -87,33 +85,30 @@ fn main() {
         }
 
         // Write struct definition
-        write!(out, "#[derive(Debug)] pub struct {}{} {{\n",
-               name, if is_req { "<'a>" } else { "" }).unwrap();
+        writeln!(out, "#[derive(Debug)] pub struct {}{} {{",
+                 name, if is_req { "<'a>" } else { "" }).unwrap();
         for (_, rsname, _, rstype) in &msg_members {
-            write!(out, "    pub {}: {},\n", rsname, rstype).unwrap();
+            writeln!(out, "    pub {}: {},", rsname, rstype).unwrap();
         }
-        write!(out, "}}\n\n").unwrap();
+        writeln!(out, "}}\n").unwrap();
 
         if is_req {
             // Write serialization code if it's a request type
-            write!(out, r#"impl<'a> fmt::Display for {}<'a> {{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {{
-"#, name).unwrap();
+            writeln!(out, r#"impl<'a> fmt::Display for {}<'a> {{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {{"#, name).unwrap();
 
             for (pname, rsname, xsdtype, _) in &msg_members {
-                write!(out, r#"        write!(f, "<{} xsi:type=\"{}\">{{}}</{}>", self.{})?;
-"#,
+                writeln!(out, r#"        write!(f, "<{} xsi:type=\"{}\">{{}}</{}>", self.{})?;"#,
                        pname, xsdtype, pname, rsname).unwrap();
             }
 
-            write!(out, r#"        Ok(())
+            writeln!(out, r#"        Ok(())
     }}
 }}
-
 "#).unwrap();
         } else {
             // Write deserialization code if it's a response type
-            write!(out, r#"impl FromStr for {} {{
+            writeln!(out, r#"impl FromStr for {} {{
     type Err = anyhow::Error;
     fn from_str(s: &str) -> Result<Self> {{
         let tree = Element::from_reader(&mut s.as_bytes()).context("XML parse")?;
@@ -127,20 +122,19 @@ fn main() {
                 bail!("got unexpected content tag: {{}}", tns.tag().name());
             }}
         }}
-        Ok(Self {{
-"#, name, name).unwrap();
+        Ok(Self {{"#, name, name).unwrap();
             for (pname, rsname, _, _) in &msg_members {
-                write!(out, "            {}: tns.find(\"{}\").context(\"missing {}\")?.text().parse().context(\"parsing {}\")?,\n",
+                writeln!(out, r#"            {}: tns.find("{}").context("missing {}")?.text().parse().context("parsing {}")?,"#,
                        rsname, pname, pname, pname).unwrap();
             }
-            write!(out, "        }})
+            writeln!(out, "        }})
     }}
-}}\n\n").unwrap();
+}}\n").unwrap();
         }
     }
 
     // Write Service impl with methods for each operation
-    write!(out, "{}", SERVICE_IMPL).unwrap();
+    writeln!(out, "{}", SERVICE_IMPL).unwrap();
 
     for ptype in tree.find_all(PORT_TYPE) {
         for port in ptype.find_all(OPERATION) {
@@ -152,10 +146,10 @@ fn main() {
                            .get_attr("message").unwrap()
                            .trim_start_matches("tns:");
 
-            write!(out, "    pub fn {}(&mut self, arg: {}) -> Result<{}> {{ self.request(\"{}\", arg) }}\n\n",
+            writeln!(out, "    pub fn {}(&mut self, arg: {}) -> Result<{}> {{ self.request(\"{}\", arg) }}\n",
                    name, inp, outp, name).unwrap();
         }
     }
 
-    write!(out, "}}\n").unwrap();
+    writeln!(out, "}}").unwrap();
 }

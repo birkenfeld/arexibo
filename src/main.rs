@@ -99,7 +99,7 @@ fn main_inner() -> anyhow::Result<()> {
     #[cfg(feature = "gui")]
     {
         std::thread::spawn(|| handler.run());
-        return gui::run(settings, args.inspect, updates_rx, snaps_tx);
+        gui::run(settings, args.inspect, updates_rx, snaps_tx)
     }
     #[cfg(not(feature = "gui"))]
     {

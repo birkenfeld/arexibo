@@ -98,7 +98,7 @@ pub fn percent_decode(s: &str) -> String {
 
 
 /// (De)serializing bytestrings for JSON
-pub fn ser_hex<S: Serializer>(v: &Vec<u8>, s: S) -> std::result::Result<S::Ok, S::Error> {
+pub fn ser_hex<S: Serializer>(v: &[u8], s: S) -> std::result::Result<S::Ok, S::Error> {
     s.serialize_str(&hex::encode(v))
 }
 

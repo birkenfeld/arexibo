@@ -4,7 +4,7 @@
 //! Internal webserver to point the webview to.
 
 use std::{sync::Arc, fs, io::Read, io::Seek, thread};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use anyhow::{anyhow, bail, Result};
 use tiny_http::{Request, Response, ResponseBox, Header, StatusCode};
 
@@ -42,7 +42,7 @@ impl Server {
     }
 
     /// Serve a single HTTP request.
-    fn serve(dir: &PathBuf, req: &Request) -> Result<ResponseBox> {
+    fn serve(dir: &Path, req: &Request) -> Result<ResponseBox> {
         log::debug!("HTTP request: {}", req.url());
         Ok(match req.url() {
             // built-in files?

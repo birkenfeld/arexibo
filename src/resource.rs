@@ -116,11 +116,11 @@ impl Cache {
     }
 
     pub fn has(&self, res: &ReqFile) -> bool {
-        match res {
-            &ReqFile::Resource { id, updated, .. } => {
+        match *res {
+            ReqFile::Resource { id, updated, .. } => {
                 self.get_resource(id).map_or(false, |res| res.updated == updated)
             }
-            &ReqFile::File { ref name, ref md5, typ, id, .. } => {
+            ReqFile::File { ref name, ref md5, typ, id, .. } => {
                 if typ == "layout" {
                     self.get_layout(id).map_or(false, |res| &res.md5 == md5)
                 } else {
@@ -157,7 +157,7 @@ impl Cache {
                         }
                     }
                 } else {
-                    self.download_xmds(id, &typ, size, cms)?
+                    self.download_xmds(id, typ, size, cms)?
                 };
                 if Md5::digest(&data).as_slice() != md5 {
                     bail!("md5 mismatch");

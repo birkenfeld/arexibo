@@ -76,15 +76,12 @@ pub fn run(settings: PlayerSettings, inspect: bool,
         @weak container => @default-return None,
         move |args| {
             if let Some(event) = extract_js_string(args.get(1)) {
-                match &*event {
-                    "layout_done" => {
-                        if let Some(info) = schedule.borrow_mut().next() {
-                            log::info!("showing next layout: {}", info.id);
-                            apply_scale(info.size, &window, &container, &webview);
-                            webview.load_uri(&format!("{}{}.xlf.html", base_uri, info.id));
-                        }
+                if event == "layout_done" {
+                    if let Some(info) = schedule.borrow_mut().next() {
+                        log::info!("showing next layout: {}", info.id);
+                        apply_scale(info.size, &window, &container, &webview);
+                        webview.load_uri(&format!("{}{}.xlf.html", base_uri, info.id));
                     }
-                    _ => ()
                 }
             }
             None
