@@ -22,13 +22,13 @@ log = "0.4"
 rand = "0.8"
 
 # GUI
-cairo-rs = { version = "0.15", features = ["png"] }
-glib = "0.15"
-gio = "0.15"
-gdk = "0.15"
-gdk-pixbuf = "0.15"
-gtk = "0.15"
-webkit2gtk = { version = "0.17", features = ["v2_8"] }
+cairo-rs = { version = "0.14", features = ["png"] }
+glib = "0.14"
+gio = "0.14"
+gdk = "0.14"
+gdk-pixbuf = "0.14"
+gtk = "0.14"
+webkit2gtk = { version = "0.15", features = ["v2_22"] }
 
 # crypto
 arc4 = "0.1"
@@ -50,3 +50,7 @@ elementtree = "0.7"
 
 [features]
 gui = []  # avoid long build times when working on backend
+
+[patch.crates-io]
+# work around a bug in 0.15.1; 0.15.2 is not on crates.io
+webkit2gtk-sys = { git = "https://github.com/tauri-apps/webkit2gtk-rs", rev = "webkit2gtk-sys-v0.15.2" }

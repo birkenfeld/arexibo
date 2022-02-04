@@ -58,10 +58,10 @@ pub fn run(settings: PlayerSettings, inspect: bool,
     window.show_all();
 
     if let Some(gdkwin) = window.window() {
-        gdkwin.set_background_rgba(&gdk::RGBA::new(0., 0., 0., 1.));
-        gdkwin.set_cursor(gdk::Cursor::for_display(
+        gdkwin.set_background_rgba(&gdk::RGBA { red: 0., green: 0., blue: 0., alpha: 1. });
+        gdkwin.set_cursor(Some(&gdk::Cursor::for_display(
             &gdk::Display::default().unwrap(),
-            gdk::CursorType::BlankCursor).as_ref());
+            gdk::CursorType::BlankCursor)));
     }
 
     window.connect_delete_event(|_, _| {
@@ -89,7 +89,7 @@ pub fn run(settings: PlayerSettings, inspect: bool,
             }
             None
         }
-    ));
+    ))?;
 
     updates.attach(None, clone!(
         @weak webview, @weak window, @weak container => @default-return Continue(true),
@@ -130,10 +130,7 @@ pub fn run(settings: PlayerSettings, inspect: bool,
 }
 
 fn extract_js_string(arg: Option<&glib::Value>) -> Option<String> {
-    let arg = arg?;
-    let jsresult = arg.get::<JavascriptResult>().ok()?;
-    let ctx = jsresult.global_context()?;
-    jsresult.value()?.to_string(&ctx)
+    Some(arg?.get::<JavascriptResult>().ok()?.js_value()?.to_string())
 }
 
 fn apply_size(window: &Window, settings: PlayerSettings) {
@@ -141,7 +138,7 @@ fn apply_size(window: &Window, settings: PlayerSettings) {
         let pos = window.position();
         let monitor = screen.monitor_at_point(pos.0, pos.1);
         let size = screen.monitor_workarea(monitor);
-        (size.width(), size.height())
+        (size.width, size.height)
     } else {
         return;
     };
