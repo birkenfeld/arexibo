@@ -19,6 +19,7 @@ crossbeam-channel = "0.5"
 hex = "0.4"
 itertools = "0.10"
 log = "0.4"
+nix = "0.23"
 rand = "0.8"
 
 # GUI

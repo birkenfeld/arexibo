@@ -12,13 +12,14 @@ mod soap {
 use anyhow::{bail, Context, Result};
 use elementtree::Element;
 use crate::config::{CmsSettings, PlayerSettings};
-use crate::util::{Base64Field, ElementExt};
+use crate::util::{Base64Field, ElementExt, retrieve_mac};
 use crate::resource::ReqFile;
 use crate::schedule::Schedule;
 
 /// Proxy for the XMDS calls to the CMS.
 pub struct Cms {
     service: soap::Service,
+    mac_addr: String,
     channel: String,
     cms_key: String,
     hw_key: String,
@@ -29,6 +30,7 @@ impl Cms {
     pub fn new(settings: &CmsSettings, pub_key: String) -> Self {
         Self {
             service: soap::Service::new(format!("{}/xmds.php?v=5", settings.address)),
+            mac_addr: retrieve_mac().unwrap_or("00:00:00:00:00:00".into()),
             channel: settings.xmr_channel(),
             cms_key: settings.key.to_owned(),
             hw_key: settings.display_id.to_owned(),
@@ -46,7 +48,7 @@ impl Cms {
                 clientVersion: &clap::crate_version!(),
                 clientCode: 0,
                 operatingSystem: "linux",
-                macAddress: "00:00:00:00:00:00",  // TODO
+                macAddress: &self.mac_addr,
                 xmrChannel: &self.channel,
                 xmrPubKey: &self.pub_key,
             }

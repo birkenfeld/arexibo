@@ -3,8 +3,10 @@
 
 //! Various utilities.
 
-use std::{fmt, str::FromStr};
+use std::{fs, fmt, str::FromStr};
 use anyhow::{Context, Result};
+use md5::{Md5, Digest};
+use nix::unistd::gethostname;
 use serde::{Deserialize, Deserializer, Serializer, de::Error};
 
 
@@ -103,4 +105,38 @@ pub fn ser_hex<S: Serializer>(v: &Vec<u8>, s: S) -> std::result::Result<S::Ok, S
 pub fn de_hex<'de, D: Deserializer<'de>>(d: D) -> std::result::Result<Vec<u8>, D::Error> {
     let s = <String as Deserialize>::deserialize(d)?;
     hex::decode(&s).map_err(|_| D::Error::custom("invalid hex string"))
+}
+
+
+/// Retrieve MAC address of a system interface.
+pub fn retrieve_mac() -> Option<String> {
+    for entry in fs::read_dir("/sys/class/net").ok()? {
+        let path = entry.ok()?.path();
+        // addr_assign_type 0 means that it is an actual permanent address.
+        if let Ok("0") = fs::read_to_string(path.join("addr_assign_type")).as_deref() {
+            if let Ok(addr) = fs::read_to_string(path.join("address")) {
+                if !addr.ends_with(":00:00") {
+                    return Some(addr);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Generate a display ID.  Tries /etc/machine-id, the DMI board id, the MAC or the hostname.
+pub fn get_display_id() -> String {
+    if let Ok(id) = fs::read_to_string("/etc/machine-id") {
+        return id.trim().into();
+    }
+    // Try the DMI board id, the MAC address and the hostname.
+    // Process all three bits of info into a big string and hash it.
+    let mut buffer = [0u8; 64];
+    let idstring = format!(
+        "{:?}{:?}{:?}",
+        fs::read_to_string("/sys/devices/virtual/dmi/id/board_serial"),
+        retrieve_mac(),
+        gethostname(&mut buffer).ok().and_then(|s| s.to_str().ok())
+    );
+    hex::encode(&Md5::digest(idstring.as_bytes()))
 }
