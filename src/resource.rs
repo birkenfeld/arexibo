@@ -3,37 +3,21 @@
 
 //! Handling resources such as media and layout files.
 
-use std::{fs, io::Read};
-use std::path::PathBuf;
-use anyhow::{bail, Result};
+use std::collections::HashMap;
+use std::{fs, io::Read, path::PathBuf, sync::Arc};
+use anyhow::{bail, Context, Result};
 use md5::{Md5, Digest};
+use serde::{Serialize, Deserialize};
 use ureq::Agent;
-use crate::xmds;
-
-// TODO:
-// - central + persisted storage of media info, layout info
+use crate::{util, layout, xmds};
 
 
-#[derive(Debug, Clone, Copy)]
-pub enum FileType {
-    Media,
-    Layout,
-}
-
-impl FileType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            FileType::Media => "media",
-            FileType::Layout => "layout",
-        }
-    }
-}
-
+/// An entry in the "required files" set.
 #[derive(Debug)]
-pub enum Resource {
+pub enum ReqFile {
     File {
         id: i64,
-        typ: FileType,
+        typ: &'static str,
         size: u64,
         md5: Vec<u8>,
         http: bool,
@@ -49,64 +33,112 @@ pub enum Resource {
     },
 }
 
-impl Resource {
+impl ReqFile {
     pub fn description(&self) -> String {
         match self {
-            Resource::File { typ, name, .. } => format!("{} {}", typ.as_str(), name),
-            Resource::Resource { mediaid, .. } => format!("resource {}", mediaid)
+            ReqFile::File { typ, name, .. } => format!("{} {}", typ, name),
+            ReqFile::Resource { mediaid, .. } => format!("resource {}", mediaid)
         }
     }
 
-    pub fn inventory(&self, complete: bool) -> (&'static str, i64, bool) {
+    pub fn inventory(&self) -> (&'static str, i64) {
         match self {
-            Resource::File { id, typ, .. } => (typ.as_str(), *id, complete),
-            Resource::Resource { mediaid, .. } => ("resource", *mediaid, complete),
+            ReqFile::File { id, typ, .. } => (typ, *id),
+            ReqFile::Resource { id, .. } => ("resource", *id),
         }
     }
+}
+
+
+#[derive(Serialize, Deserialize)]
+pub struct LayoutInfo {
+    id: i64,
+    #[serde(deserialize_with = "util::de_hex", serialize_with = "util::ser_hex")]
+    md5: Vec<u8>,
+    width: u32,
+    height: u32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MediaInfo {
+    id: i64,
+    size: u64,
+    #[serde(deserialize_with = "util::de_hex", serialize_with = "util::ser_hex")]
+    md5: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ResourceInfo {
+    id: i64,
+    layoutid: i64,
+    regionid: i64,
+    updated: i64,
+}
+
+/// A resource in the local cache.
+#[derive(Serialize, Deserialize)]
+pub enum Resource {
+    Layout(Arc<LayoutInfo>),
+    Media(Arc<MediaInfo>),
+    Resource(Arc<ResourceInfo>),
 }
 
 
 pub struct Cache {
     dir: PathBuf,
     agent: Agent,
+    content: HashMap<String, Resource>,
 }
 
 impl Cache {
     pub fn new(dir: PathBuf) -> Result<Self> {
+        let mut content = HashMap::new();
         if !fs::metadata(&dir).map_or(false, |p| p.is_dir()) {
             fs::create_dir_all(&dir)?;
+        } else if let Some(saved) = fs::File::open(dir.join("content.json"))
+            .ok().and_then(|fp| serde_json::from_reader(fp).ok())
+        {
+            content = saved;
+            // TODO: ensure the files are present...
         }
         let agent = Agent::new();
-        Ok(Self { dir, agent })
+        Ok(Self { dir, agent, content })
     }
 
-    pub fn has(&self, res: &Resource) -> bool {
+    pub fn has(&self, res: &ReqFile) -> bool {
         match res {
-            &Resource::Resource { mediaid, .. } => {
-                fs::metadata(self.dir.join(format!("{}.html", mediaid))).map_or(false, |p| p.is_file())
+            &ReqFile::Resource { id, updated, .. } => {
+                self.get_resource(id).map_or(false, |res| res.updated == updated)
             }
-            &Resource::File { ref name, .. } => {
-                // TODO: check the MD5 as well
-                fs::metadata(self.dir.join(name)).map_or(false, |p| p.is_file())
+            &ReqFile::File { ref name, ref md5, typ, id, .. } => {
+                if typ == "layout" {
+                    self.get_layout(id).map_or(false, |res| &res.md5 == md5)
+                } else {
+                    self.get_media(name).map_or(false, |res| &res.md5 == md5)
+                }
             }
         }
     }
 
-    pub fn download(&mut self, res: &Resource, cms: &mut xmds::Cms) -> Result<()> {
+    pub fn download(&mut self, res: ReqFile, cms: &mut xmds::Cms) -> Result<()> {
         match res {
-            &Resource::Resource { layoutid, regionid, mediaid, .. } => {
+            ReqFile::Resource { id, layoutid, regionid, mediaid, updated } => {
                 let data = cms.get_resource(layoutid, &regionid.to_string(),
                                             &mediaid.to_string())?;
-                let fname = format!("{}.html", mediaid);
-                fs::write(self.dir.join(&fname), &data)?;
+                let fname = format!("{}.html", id);
 
                 // TODO:
                 // - process (replace [[ViewPort]], get DURATION)
                 // - re-download after given updateInterval
+                fs::write(self.dir.join(&fname), &data)?;
+                self.content.insert(fname, Resource::Resource(Arc::new(
+                    ResourceInfo { id, layoutid, regionid, updated }
+                )));
+                self.save()?;
             }
-            &Resource::File { id, typ, http, size, ref md5, ref path, ref name } => {
+            ReqFile::File { id, typ, http, size, md5, path, name } => {
                 let data = if http {
-                    match self.download_http(path) {
+                    match self.download_http(&path) {
                         Ok(data) => data,
                         Err(e) => {
                             log::warn!("failing download of {} over http, retrying \
@@ -115,14 +147,29 @@ impl Cache {
                         }
                     }
                 } else {
-                    self.download_xmds(id, typ, size, cms)?
+                    self.download_xmds(id, &typ, size, cms)?
                 };
                 if Md5::digest(&data).as_slice() != md5 {
                     bail!("md5 mismatch");
                 }
-                fs::write(self.dir.join(name), data)?;
+                fs::write(self.dir.join(&name), data)?;
 
-                // TODO: process layouts to HTML
+                if typ == "layout" {
+                    // translate the layout into HTML
+                    let xl = layout::Translator::new(
+                        &self.dir.join(&name),
+                        &self.dir.join(&format!("{}.xlf.html", name))
+                    )?;
+                    let (width, height) = xl.translate()?;
+                    self.content.insert(name, Resource::Layout(Arc::new(
+                        LayoutInfo { id, md5, width, height }
+                    )));
+                } else {
+                    self.content.insert(name, Resource::Media(Arc::new(
+                        MediaInfo { id, size, md5 }
+                    )));
+                }
+                self.save()?;
             }
         }
         Ok(())
@@ -134,7 +181,7 @@ impl Cache {
         Ok(data)
     }
 
-    fn download_xmds(&mut self, id: i64, typ: FileType, size: u64, cms: &mut xmds::Cms) -> Result<Vec<u8>> {
+    fn download_xmds(&mut self, id: i64, typ: &str, size: u64, cms: &mut xmds::Cms) -> Result<Vec<u8>> {
         const CHUNK_SIZE: u64 = 1024 * 1024;
         let mut got_size = 0;
         let mut result = Vec::new();
@@ -145,5 +192,32 @@ impl Cache {
             result.extend(chunk);
         }
         Ok(result)
+    }
+
+    fn get_layout(&self, id: i64) -> Option<&LayoutInfo> {
+        self.content.get(&format!("{}.xlf", id)).and_then(|entry| match entry {
+            Resource::Layout(layout) => Some(&**layout),
+            _ => None
+        })
+    }
+
+    fn get_media(&self, name: &str) -> Option<&MediaInfo> {
+        self.content.get(name).and_then(|entry| match entry {
+            Resource::Media(media) => Some(&**media),
+            _ => None
+        })
+    }
+
+    fn get_resource(&self, id: i64) -> Option<&ResourceInfo> {
+        self.content.get(&format!("{}.html", id)).and_then(|entry| match entry {
+            Resource::Resource(res) => Some(&**res),
+            _ => None
+        })
+    }
+
+    fn save(&self) -> Result<()> {
+        let fp = fs::File::create(self.dir.join("content.json")).context("writing cache content")?;
+        serde_json::to_writer_pretty(fp, &self.content).context("serializing cache content")?;
+        Ok(())
     }
 }

@@ -9,10 +9,6 @@ license = "AGPL-3+"
 name = "arexibo"
 path = "src/main.rs"
 
-[[bin]]
-name = "convlayout"
-path = "src/convlayout.rs"
-
 [dependencies]
 # general
 anyhow = "1.0"
@@ -41,7 +37,7 @@ rsa = "0.5"
 
 # file formats
 elementtree = "0.7"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 toml = "0.5"
 

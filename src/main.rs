@@ -10,7 +10,7 @@ pub mod collect;
 pub mod server;
 pub mod resource;
 pub mod schedule;
-// pub mod layout;
+pub mod layout;
 pub mod xmds;
 pub mod xmr;
 pub mod util;

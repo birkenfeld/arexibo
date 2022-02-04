@@ -13,7 +13,7 @@ use anyhow::{bail, Context, Result};
 use elementtree::Element;
 use crate::config::{CmsSettings, PlayerSettings};
 use crate::util::{Base64Field, ElementExt};
-use crate::resource::{FileType, Resource};
+use crate::resource::ReqFile;
 use crate::schedule::Schedule;
 
 /// Proxy for the XMDS calls to the CMS.
@@ -74,7 +74,7 @@ impl Cms {
         }
     }
 
-    pub fn required_files(&mut self) -> Result<Vec<Resource>> {
+    pub fn required_files(&mut self) -> Result<Vec<ReqFile>> {
         let xml = self.service.RequiredFiles(
             soap::RequiredFilesRequest {
                 serverKey: &self.cms_key,
@@ -97,15 +97,17 @@ impl Cms {
                     }
                     ("".into(), path)
                 };
-                res.push(Resource::File {
+                res.push(ReqFile::File {
                     id: file.parse_attr("id")?,
-                    typ: if typ == "media" { FileType::Media } else { FileType::Layout },
+                    // match seems like a no-op but maps to a &'static str
+                    typ: match typ { "media" => "media", "layout" => "layout",
+                                      _ => unreachable!() },
                     size: file.parse_attr("size")?,
                     md5: hex::decode(&file.parse_attr::<String>("md5")?)?,
                     path, name, http,
                 });
             } else if typ == "resource" {
-                res.push(Resource::Resource {
+                res.push(ReqFile::Resource {
                     id: file.parse_attr("id")?,
                     layoutid: file.parse_attr("layoutid")?,
                     regionid: file.parse_attr("regionid")?,
@@ -131,13 +133,13 @@ impl Cms {
         Schedule::parse(tree)
     }
 
-    pub fn get_file_data(&mut self, file: i64, ftype: FileType, offset: u64, size: u64) -> Result<Vec<u8>> {
+    pub fn get_file_data(&mut self, file: i64, ftype: &str, offset: u64, size: u64) -> Result<Vec<u8>> {
         Ok(self.service.GetFile(
             soap::GetFileRequest {
                 serverKey: &self.cms_key,
                 hardwareKey: &self.hw_key,
                 fileId: file,
-                fileType: ftype.as_str(),
+                fileType: ftype,
                 chunkOffset: offset as f64,
                 chuckSize: size as f64,
             }
@@ -169,9 +171,9 @@ impl Cms {
         if !success { bail!("blacklisting not successful"); } else { Ok(()) }
     }
 
-    pub fn submit_media_inventory(&mut self, inv: Vec<(&'static str, i64, bool)>) -> Result<()> {
+    pub fn submit_media_inventory(&mut self, inv: Vec<((&'static str, i64), bool)>) -> Result<()> {
         let mut files = Element::new("files");
-        for (typ, id, complete) in inv {
+        for ((typ, id), complete) in inv {
             let mut file = Element::new("file");
             file.set_attr("type", typ);
             file.set_attr("id", &id.to_string());
@@ -179,6 +181,7 @@ impl Cms {
             files.append_child(file);
         }
 
+        // TODO: this doesn't seem to be processed properly
         let inv_xml = format!("<![CDATA[ {} ]]>", files.to_string()?);
         let success = self.service.MediaInventory(
             soap::MediaInventoryRequest {

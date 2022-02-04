@@ -138,14 +138,15 @@ impl Handler {
         for file in required {
             if !self.cache.has(&file) {
                 let filedesc = file.description();
+                let inventory = file.inventory();
                 log::info!("downloading: {}", filedesc);
-                match self.cache.download(&file, &mut self.xmds)
+                match self.cache.download(file, &mut self.xmds)
                                 .with_context(|| format!("downloading {}", filedesc))
                 {
-                    Ok(_) => result.push(file.inventory(true)),
+                    Ok(_) => result.push((inventory, true)),
                     Err(e) => {
                         log::error!("{:#}", e);
-                        result.push(file.inventory(false));
+                        result.push((inventory, false));
                     }
                 }
             }

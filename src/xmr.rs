@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Duration, FixedOffset, offset::Utc};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use rsa::RsaPrivateKey;
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de::Error};
 use serde_json::from_slice;
 use crate::config::CmsSettings;
 
@@ -116,7 +116,7 @@ impl JsonMessage {
 
 fn deserialize_datetime<'de, D: Deserializer<'de>>(d: D) -> std::result::Result<DateTime<FixedOffset>, D::Error> {
     let s = <String as Deserialize>::deserialize(d)?;
-    DateTime::parse_from_rfc3339(&s).map_err(|_| unimplemented!())
+    DateTime::parse_from_rfc3339(&s).map_err(|_| D::Error::custom("invalid datetime string"))
 }
 
 fn decrypt_private_key(enc_key: &[u8], private_key: &RsaPrivateKey) -> Result<Vec<u8>> {

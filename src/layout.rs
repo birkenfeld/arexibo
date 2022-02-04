@@ -39,6 +39,7 @@ pub struct Translator {
     tree: Option<Element>,
     out: BufWriter<fs::File>,
     regions: Vec<i32>,
+    size: (u32, u32),
 }
 
 impl Translator {
@@ -49,10 +50,10 @@ impl Translator {
         let out = fs::File::create(html)?;
         let out = BufWriter::new(out);
 
-        Ok(Self { tree, out, regions: Vec::new() })
+        Ok(Self { tree, out, regions: Vec::new(), size: (0, 0) })
     }
 
-    pub fn translate(mut self) -> Result<()> {
+    pub fn translate(mut self) -> Result<(u32, u32)> {
         let tree = self.tree.take().unwrap();
         self.write_header(&tree)?;
         for region in tree.find_all("region") {
@@ -61,7 +62,7 @@ impl Translator {
             }
         }
         self.write_footer()?;
-        Ok(())
+        Ok(self.size)
     }
 
     fn write_header(&mut self, el: &Element) -> Result<()> {
@@ -151,7 +152,7 @@ impl Translator {
         Ok(())
     }
 
-    fn write_media(&mut self, rid: i32, [x, y, w, h]: [i32; 4],
+    fn write_media(&mut self, rid: i32, [x, y, w, h]: [u32; 4],
                    media: &Element) -> Result<Option<(i32, i32, String, Option<String>)>> {
         let mid = media.parse_attr("id")?;
         let opts = media.find("options").context("no options")?;
