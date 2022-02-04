@@ -114,10 +114,10 @@ pub fn retrieve_mac() -> Option<String> {
     for entry in fs::read_dir("/sys/class/net").ok()? {
         let path = entry.ok()?.path();
         // addr_assign_type 0 means that it is an actual permanent address.
-        if let Ok("0") = fs::read_to_string(path.join("addr_assign_type")).as_deref() {
+        if let Ok("0\n") = fs::read_to_string(path.join("addr_assign_type")).as_deref() {
             if let Ok(addr) = fs::read_to_string(path.join("address")) {
-                if !addr.ends_with(":00:00") {
-                    return Some(addr);
+                if !addr.ends_with(":00:00\n") {
+                    return Some(addr.trim().into());
                 }
             }
         }
@@ -131,11 +131,12 @@ pub fn get_display_id() -> String {
         return id.trim().into();
     }
     // Try the DMI board id, the MAC address and the hostname.
-    // Process all three bits of info into a big string and hash it.
+    // Process all info into a big string and hash it.
     let mut buffer = [0u8; 64];
     let idstring = format!(
-        "{:?}{:?}{:?}",
-        fs::read_to_string("/sys/devices/virtual/dmi/id/board_serial"),
+        "{:?}{:?}{:?}{:?}",
+        fs::read_to_string("/sys/devices/virtual/dmi/id/board_name"),
+        fs::read_to_string("/sys/devices/virtual/dmi/id/board_version"),
         retrieve_mac(),
         gethostname(&mut buffer).ok().and_then(|s| s.to_str().ok())
     );

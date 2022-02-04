@@ -67,8 +67,8 @@ fn main_inner() -> anyhow::Result<()> {
     } else if let Ok(from_json) = config::CmsSettings::from_file(&cmscfg) {
         from_json
     } else {
-        anyhow::bail!("cms.json not found or invalid, run with the --host, --cms-key \
-                       and --display-id options to reconfigure");
+        anyhow::bail!("cms.json not found or invalid, run with the --host and --key \
+                       options to reconfigure");
     };
 
     settings.to_file(&cmscfg).context("writing new CMS config")?;
