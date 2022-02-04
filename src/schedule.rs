@@ -3,18 +3,20 @@
 
 //! Schedule parsing and scheduling.
 
+use std::sync::Arc;
 use anyhow::{Context, Result};
 use chrono::{NaiveDateTime, Local};
 use elementtree::Element;
+use crate::resource::{Cache, LayoutInfo};
 use crate::util::ElementExt;
 
 type Dt = NaiveDateTime;
-type Layout = i64;
+type LayoutId = i64;
 
 #[derive(Debug, Default)]
 pub struct Schedule {
-    default: Option<i64>,
-    schedules: Vec<(Dt, Dt, Layout, i64)>,
+    default: Option<LayoutId>,
+    schedules: Vec<(Dt, Dt, LayoutId, i32)>,
 }
 
 const FMT: &str = "%Y-%m-%d %H:%M:%S";
@@ -42,11 +44,11 @@ impl Schedule {
         })
     }
 
-    pub fn layouts_now(&self) -> Vec<Layout> {
+    pub fn layouts_now(&self, cache: &Cache) -> Vec<Arc<LayoutInfo>> {
         let now = Local::now().naive_local();
         let mut cur_prio = 0;
         let mut layouts = Vec::new();
-        for &(from, to, layout, prio) in &self.schedules {
+        for &(from, to, lid, prio) in &self.schedules {
             if from >= now && now <= to {
                 if prio < cur_prio {
                     continue;
@@ -54,12 +56,16 @@ impl Schedule {
                     cur_prio = prio;
                     layouts.clear();
                 }
-                layouts.push(layout);
+                if let Some(info) = cache.get_layout(lid) {
+                    layouts.push(info);
+                }
             }
         }
         if layouts.is_empty() {
             if let Some(def) = self.default {
-                layouts.push(def);
+                if let Some(info) = cache.get_layout(def) {
+                    layouts.push(info);
+                }
             }
         }
         layouts

@@ -50,33 +50,33 @@ impl ReqFile {
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct LayoutInfo {
-    id: i64,
+    pub id: i64,
     #[serde(deserialize_with = "util::de_hex", serialize_with = "util::ser_hex")]
-    md5: Vec<u8>,
-    width: u32,
-    height: u32,
+    pub md5: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct MediaInfo {
-    id: i64,
-    size: u64,
+    pub id: i64,
+    pub size: u64,
     #[serde(deserialize_with = "util::de_hex", serialize_with = "util::ser_hex")]
-    md5: Vec<u8>,
+    pub md5: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ResourceInfo {
-    id: i64,
-    layoutid: i64,
-    regionid: i64,
-    updated: i64,
+    pub id: i64,
+    pub layoutid: i64,
+    pub regionid: i64,
+    pub updated: i64,
 }
 
 /// A resource in the local cache.
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Resource {
     Layout(Arc<LayoutInfo>),
     Media(Arc<MediaInfo>),
@@ -194,23 +194,23 @@ impl Cache {
         Ok(result)
     }
 
-    fn get_layout(&self, id: i64) -> Option<&LayoutInfo> {
+    pub fn get_layout(&self, id: i64) -> Option<Arc<LayoutInfo>> {
         self.content.get(&format!("{}.xlf", id)).and_then(|entry| match entry {
-            Resource::Layout(layout) => Some(&**layout),
+            Resource::Layout(layout) => Some(layout.clone()),
             _ => None
         })
     }
 
-    fn get_media(&self, name: &str) -> Option<&MediaInfo> {
+    fn get_media(&self, name: &str) -> Option<Arc<MediaInfo>> {
         self.content.get(name).and_then(|entry| match entry {
-            Resource::Media(media) => Some(&**media),
+            Resource::Media(media) => Some(media.clone()),
             _ => None
         })
     }
 
-    fn get_resource(&self, id: i64) -> Option<&ResourceInfo> {
+    fn get_resource(&self, id: i64) -> Option<Arc<ResourceInfo>> {
         self.content.get(&format!("{}.html", id)).and_then(|entry| match entry {
-            Resource::Resource(res) => Some(&**res),
+            Resource::Resource(res) => Some(res.clone()),
             _ => None
         })
     }

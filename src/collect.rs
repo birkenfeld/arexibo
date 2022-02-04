@@ -3,22 +3,20 @@
 
 //! Main collect loop that also processes XMR requests.
 
-use std::path::Path;
-use std::time::Duration;
-use std::thread;
+use std::{path::Path, sync::Arc, thread, time::Duration};
 use anyhow::{bail, Context, Result};
 use crossbeam_channel::{after, never, select, tick, Receiver};
 use rand::rngs::OsRng;
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::{FromPrivateKey, ToPrivateKey, ToPublicKey}};
 use crate::config::{CmsSettings, PlayerSettings};
 use crate::{xmds, xmr};
-use crate::resource::Cache;
+use crate::resource::{Cache, LayoutInfo};
 use crate::schedule::Schedule;
 
 /// Messages sent to the GUI thread
 pub enum Update {
     Settings(PlayerSettings),
-    Layouts(Vec<i64>),
+    Layouts(Vec<Arc<LayoutInfo>>),
     Screenshot,
 }
 
@@ -31,7 +29,7 @@ pub struct Handler {
     cache: Cache,
     xmr: Receiver<xmr::Message>,
     schedule: Schedule,
-    layouts: Vec<i64>,
+    layouts: Vec<Arc<LayoutInfo>>,
 }
 
 impl Handler {
@@ -167,7 +165,7 @@ impl Handler {
 
     /// Check if need to update the layouts to show.
     fn schedule_check(&mut self) {
-        let new_layouts = self.schedule.layouts_now();
+        let new_layouts = self.schedule.layouts_now(&self.cache);
         if new_layouts != self.layouts {
             log::info!("schedule: new layouts {:?}", new_layouts);
             self.updates.send(Update::Layouts(new_layouts.clone())).unwrap();

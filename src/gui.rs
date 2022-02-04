@@ -4,8 +4,7 @@
 //! The GUI window.
 
 use std::convert::TryFrom;
-use std::io::Cursor;
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, io::Cursor, rc::Rc, sync::Arc};
 use anyhow::{anyhow, Result};
 use cairo::{ImageSurface, Surface};
 use crossbeam_channel::Sender;
@@ -17,6 +16,7 @@ use webkit2gtk::{WebContext, WebView, UserContentManager, SnapshotRegion, Snapsh
 use webkit2gtk::traits::{UserContentManagerExt, SettingsExt, WebViewExt, WebInspectorExt};
 use crate::collect::Update;
 use crate::config::PlayerSettings;
+use crate::resource::LayoutInfo;
 
 const LOGO_PNG: &[u8] = include_bytes!("../assets/logo.png");
 
@@ -63,7 +63,7 @@ pub fn run(settings: PlayerSettings, inspect: bool,
         Inhibit(false)
     });
 
-    let schedule = Rc::new(RefCell::new(Schedule::default()));
+    let schedule = Rc::new(RefCell::new(Schedule::<Arc<LayoutInfo>>::default()));
 
     manager.connect_local("script-message-received::xibo", false, clone!(
         @strong schedule, @strong base_uri, @weak webview => @default-return None,
@@ -73,9 +73,10 @@ pub fn run(settings: PlayerSettings, inspect: bool,
                     if let Some(event) = arg.value().and_then(|v| v.to_string(&ctx)) {
                         match &*event {
                             "layout_done" => {
-                                if let Some(id) = schedule.borrow_mut().next() {
-                                    log::info!("showing next layout: {}", id);
-                                    webview.load_uri(&format!("{}{}.xlf.html", base_uri, id));
+                                if let Some(info) = schedule.borrow_mut().next() {
+                                    log::info!("showing next layout: {}", info.id);
+                                    // TODO: adapt webview scale to actual vs. designed size
+                                    webview.load_uri(&format!("{}{}.xlf.html", base_uri, info.id));
                                 }
                             }
                             _ => ()
@@ -108,9 +109,9 @@ pub fn run(settings: PlayerSettings, inspect: bool,
                 }
                 Update::Layouts(new_layouts) => {
                     // TODO: adapt webview scale to actual vs. designed size
-                    if let Some(id) = schedule.borrow_mut().update(new_layouts) {
-                        log::info!("new schedule, showing layout: {}", id);
-                        webview.load_uri(&format!("{}{}.xlf.html", base_uri, id));
+                    if let Some(info) = schedule.borrow_mut().update(new_layouts) {
+                        log::info!("new schedule, showing layout: {}", info.id);
+                        webview.load_uri(&format!("{}{}.xlf.html", base_uri, info.id));
                     }
                 }
             }
