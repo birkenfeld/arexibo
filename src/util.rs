@@ -94,12 +94,12 @@ pub fn percent_decode(s: &str) -> String {
 }
 
 
-/// (De)serializing bytestrings for TOML
+/// (De)serializing bytestrings for JSON
 pub fn ser_hex<S: Serializer>(v: &Vec<u8>, s: S) -> std::result::Result<S::Ok, S::Error> {
     s.serialize_str(&hex::encode(v))
 }
 
-/// (De)serializing bytestrings for TOML
+/// (De)serializing bytestrings for JSON
 pub fn de_hex<'de, D: Deserializer<'de>>(d: D) -> std::result::Result<Vec<u8>, D::Error> {
     let s = <String as Deserialize>::deserialize(d)?;
     hex::decode(&s).map_err(|_| D::Error::custom("invalid hex string"))

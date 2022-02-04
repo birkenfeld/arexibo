@@ -53,18 +53,18 @@ fn main_inner() -> anyhow::Result<()> {
     let args = Args::parse();
 
     let workdir = PathBuf::from(args.workdir.as_deref().unwrap_or("."));
-    let cmstoml = workdir.join("cms.toml");
+    let cmscfg = workdir.join("cms.json");
 
     let settings = if let (Some(address), Some(key), Some(display_id)) = (args.host, args.cms_key, args.display_id) {
         config::CmsSettings { address, key, display_id }
-    } else if let Ok(from_toml) = config::CmsSettings::from_file(&cmstoml) {
-        from_toml
+    } else if let Ok(from_json) = config::CmsSettings::from_file(&cmscfg) {
+        from_json
     } else {
-        anyhow::bail!("cms.toml not found or invalid, run with the --host, --cms-key \
+        anyhow::bail!("cms.json not found or invalid, run with the --host, --cms-key \
                        and --display-id options to reconfigure");
     };
 
-    settings.to_file(&cmstoml).context("writing new CMS config")?;
+    settings.to_file(&cmscfg).context("writing new CMS config")?;
 
     let (updates_tx, updates_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
     let (snaps_tx, snaps_rx) = crossbeam_channel::bounded(1);

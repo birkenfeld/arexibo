@@ -3,7 +3,7 @@
 
 //! Definitions for the player configuration.
 
-use std::path::Path;
+use std::{fs::File, path::Path};
 use anyhow::{Context, Result};
 use md5::{Md5, Digest};
 use serde::{Serialize, Deserialize};
@@ -38,13 +38,13 @@ pub struct PlayerSettings {
 
 impl PlayerSettings {
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
-        let content = std::fs::read(path.as_ref()).context("reading player settings")?;
-        toml::from_slice(&content).context("deserializing player settings")
+        serde_json::from_reader(File::open(path.as_ref())?)
+            .context("deserializing player settings")
     }
 
     pub fn to_file(&self, path: impl AsRef<Path>) -> Result<()> {
-        let content = toml::to_string_pretty(self).context("serializing player settings")?;
-        std::fs::write(path.as_ref(), content.as_bytes()).context("writing player settings")
+        serde_json::to_writer_pretty(File::create(path.as_ref())?, self)
+            .context("serializing player settings")
     }
 }
 
@@ -63,13 +63,13 @@ pub struct CmsSettings {
 
 impl CmsSettings {
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
-        let content = std::fs::read(path.as_ref()).context("reading cms settings")?;
-        toml::from_slice(&content).context("deserializing cms settings")
+        serde_json::from_reader(File::open(path.as_ref())?)
+            .context("deserializing player settings")
     }
 
     pub fn to_file(&self, path: impl AsRef<Path>) -> Result<()> {
-        let content = toml::to_string_pretty(self).context("serializing cms settings")?;
-        std::fs::write(path.as_ref(), content.as_bytes()).context("writing cms settings")
+        serde_json::to_writer_pretty(File::create(path.as_ref())?, self)
+            .context("serializing player settings")
     }
 
     pub fn xmr_channel(&self) -> String {
