@@ -37,6 +37,9 @@ struct Args {
     /// Show web inspector to debug layout problems.
     #[clap(long)]
     inspect: bool,
+    /// Clear the local file cache and re-download any files.
+    #[clap(long)]
+    clear: bool,
 }
 
 fn main() {
@@ -74,7 +77,7 @@ fn main_inner() -> anyhow::Result<()> {
     let (updates_tx, updates_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
     let (snaps_tx, snaps_rx) = crossbeam_channel::bounded(1);
 
-    let handler = collect::Handler::new(settings, &workdir, updates_tx, snaps_rx)
+    let handler = collect::Handler::new(settings, args.clear, &workdir, updates_tx, snaps_rx)
         .context("creating backend handler")?;
     let settings = handler.player_settings();
 

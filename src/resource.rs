@@ -90,16 +90,27 @@ pub struct Cache {
 }
 
 impl Cache {
-    pub fn new(dir: PathBuf) -> Result<Self> {
+    pub fn new(dir: PathBuf, clear: bool) -> Result<Self> {
         let mut content = HashMap::new();
+
         if !fs::metadata(&dir).map_or(false, |p| p.is_dir()) {
+            // no directory? create it...
             fs::create_dir_all(&dir)?;
-        } else if let Some(saved) = fs::File::open(dir.join("content.json"))
+        } else if clear {
+            // clear it?
+            fs::remove_dir_all(&dir)?;
+            fs::create_dir_all(&dir)?;
+        }
+
+        // check for a cached inventory JSON file
+        if let Some(saved) = fs::File::open(dir.join("content.json"))
             .ok().and_then(|fp| serde_json::from_reader(fp).ok())
         {
+            // ensure all mentioned files are present, remove missing entries
             content = saved;
-            // TODO: ensure the files are present...
+            content.retain(|fname, _| dir.join(fname).is_file());
         }
+
         let agent = Agent::new();
         Ok(Self { dir, agent, content })
     }
