@@ -55,8 +55,7 @@ pub struct LayoutInfo {
     pub id: i64,
     #[serde(deserialize_with = "util::de_hex", serialize_with = "util::ser_hex")]
     pub md5: Vec<u8>,
-    pub width: u32,
-    pub height: u32,
+    pub size: (i32, i32),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -158,11 +157,11 @@ impl Cache {
                     // translate the layout into HTML
                     let xl = layout::Translator::new(
                         &self.dir.join(&name),
-                        &self.dir.join(&format!("{}.xlf.html", name))
+                        &self.dir.join(&format!("{}.html", name))
                     )?;
-                    let (width, height) = xl.translate()?;
+                    let size = xl.translate()?;
                     self.content.insert(name, Resource::Layout(Arc::new(
-                        LayoutInfo { id, md5, width, height }
+                        LayoutInfo { id, md5, size }
                     )));
                 } else {
                     self.content.insert(name, Resource::Media(Arc::new(

@@ -10,7 +10,7 @@ use cairo::{ImageSurface, Surface};
 use crossbeam_channel::Sender;
 use glib::{clone, prelude::*};
 use gdk_pixbuf::Pixbuf;
-use gtk::{prelude::*, Inhibit, Window, WindowType};
+use gtk::{prelude::*, Fixed, Inhibit, Window, WindowType};
 use webkit2gtk::{WebContext, WebView, UserContentManager, SnapshotRegion, SnapshotOptions,
                  JavascriptResult};
 use webkit2gtk::traits::{UserContentManagerExt, SettingsExt, WebViewExt, WebInspectorExt};
@@ -29,6 +29,8 @@ pub fn run(settings: PlayerSettings, inspect: bool,
     let logo = Pixbuf::from_read(Cursor::new(LOGO_PNG))?;
 
     let window = Window::new(WindowType::Toplevel);
+    let container = Fixed::new();
+
     let context = WebContext::default().unwrap();
     let manager = UserContentManager::new();
     manager.register_script_message_handler("xibo");
@@ -45,15 +47,19 @@ pub fn run(settings: PlayerSettings, inspect: bool,
     }
 
     webview.load_uri(&format!("{}0.xlf.html", base_uri));
-    window.add(&webview);
+    container.put(&webview, 0, 0);
+    window.add(&container);
+    window.set_app_paintable(true);
     window.set_decorated(false);
     window.set_title(&settings.display_name);
     window.set_icon(Some(&logo));
-    window.fullscreen();
+    apply_size(&window, settings);
+    apply_scale((0, 0), &window, &container, &webview);
     window.show_all();
 
-    if let Some(win) = window.window() {
-        win.set_cursor(gdk::Cursor::for_display(
+    if let Some(gdkwin) = window.window() {
+        gdkwin.set_background_rgba(&gdk::RGBA::new(0., 0., 0., 1.));
+        gdkwin.set_cursor(gdk::Cursor::for_display(
             &gdk::Display::default().unwrap(),
             gdk::CursorType::BlankCursor).as_ref());
     }
@@ -66,22 +72,19 @@ pub fn run(settings: PlayerSettings, inspect: bool,
     let schedule = Rc::new(RefCell::new(Schedule::<Arc<LayoutInfo>>::default()));
 
     manager.connect_local("script-message-received::xibo", false, clone!(
-        @strong schedule, @strong base_uri, @weak webview => @default-return None,
+        @strong schedule, @strong base_uri, @weak webview, @weak window,
+        @weak container => @default-return None,
         move |args| {
-            if let Some(arg) = args.get(1).and_then(|a| a.get::<JavascriptResult>().ok()) {
-                if let Some(ctx) = arg.global_context() {
-                    if let Some(event) = arg.value().and_then(|v| v.to_string(&ctx)) {
-                        match &*event {
-                            "layout_done" => {
-                                if let Some(info) = schedule.borrow_mut().next() {
-                                    log::info!("showing next layout: {}", info.id);
-                                    // TODO: adapt webview scale to actual vs. designed size
-                                    webview.load_uri(&format!("{}{}.xlf.html", base_uri, info.id));
-                                }
-                            }
-                            _ => ()
+            if let Some(event) = extract_js_string(args.get(1)) {
+                match &*event {
+                    "layout_done" => {
+                        if let Some(info) = schedule.borrow_mut().next() {
+                            log::info!("showing next layout: {}", info.id);
+                            apply_scale(info.size, &window, &container, &webview);
+                            webview.load_uri(&format!("{}{}.xlf.html", base_uri, info.id));
                         }
                     }
+                    _ => ()
                 }
             }
             None
@@ -89,7 +92,7 @@ pub fn run(settings: PlayerSettings, inspect: bool,
     ));
 
     updates.attach(None, clone!(
-        @weak webview, @weak window => @default-return Continue(true),
+        @weak webview, @weak window, @weak container => @default-return Continue(true),
         move |update| {
             match update {
                 Update::Screenshot => {
@@ -106,11 +109,13 @@ pub fn run(settings: PlayerSettings, inspect: bool,
                 Update::Settings(settings) => {
                     window.set_title(&settings.display_name);
                     apply_size(&window, settings);
+                    apply_scale(schedule.borrow().current().size,
+                                &window, &container, &webview);
                 }
                 Update::Layouts(new_layouts) => {
-                    // TODO: adapt webview scale to actual vs. designed size
                     if let Some(info) = schedule.borrow_mut().update(new_layouts) {
                         log::info!("new schedule, showing layout: {}", info.id);
+                        apply_scale(info.size, &window, &container, &webview);
                         webview.load_uri(&format!("{}{}.xlf.html", base_uri, info.id));
                     }
                 }
@@ -124,14 +129,65 @@ pub fn run(settings: PlayerSettings, inspect: bool,
     Ok(())
 }
 
+fn extract_js_string(arg: Option<&glib::Value>) -> Option<String> {
+    let arg = arg?;
+    let jsresult = arg.get::<JavascriptResult>().ok()?;
+    let ctx = jsresult.global_context()?;
+    jsresult.value()?.to_string(&ctx)
+}
+
 fn apply_size(window: &Window, settings: PlayerSettings) {
-    let PlayerSettings { size_x, size_y, position_x, position_y, .. } = settings;
-    if size_x == 0 && size_y == 0 && position_x == 0 && position_y == 0 {
-        window.fullscreen();
+    let (sw, sh) = if let Some(screen) = window.screen() {
+        let pos = window.position();
+        let monitor = screen.monitor_at_point(pos.0, pos.1);
+        let size = screen.monitor_workarea(monitor);
+        (size.width(), size.height())
     } else {
+        return;
+    };
+    let PlayerSettings { mut size_x, mut size_y, pos_x, pos_y, .. } = settings;
+    if size_x == 0 && size_y == 0 && pos_x == 0 && pos_y == 0 {
+        window.fullscreen();
+        window.set_size_request(sw, sh);
+    } else {
+        if size_x == 0 { size_x = sw; }
+        if size_y == 0 { size_y = sh; }
         window.unfullscreen();
+        window.set_size_request(size_x, size_y);
         window.resize(size_x, size_y);
-        window.move_(position_x, position_y);
+        window.move_(pos_x, pos_y);
+    }
+}
+
+fn apply_scale(size: (i32, i32), window: &Window, container: &Fixed, webview: &WebView) {
+    let (ww, wh) = window.size_request();
+    let (mut lw, mut lh) = size;
+    // the easy case: direct match
+    if ww == lw && wh == lh {
+        container.move_(webview, 0, 0);
+        webview.set_size_request(lw, lh);
+        webview.set_zoom_level(1.0);
+        return;
+    }
+    // nothing specified for the layout (e.g. splash)
+    if lw == 0 || lh == 0 {
+        lw = 1920;
+        lh = 1080;
+    }
+    let win_aspect = (ww as f64) / (wh as f64);
+    let layout_aspect = (lw as f64) / (lh as f64);
+    if win_aspect > layout_aspect {
+        let scale_factor = (wh as f64) / (lh as f64);
+        let width = (lw as f64 * scale_factor).round() as i32;
+        container.move_(webview, (ww - width) / 2, 0);
+        webview.set_size_request(width, wh);
+        webview.set_zoom_level(scale_factor);
+    } else {
+        let scale_factor = (ww as f64) / (lw as f64);
+        let height = (lh as f64 * scale_factor).round() as i32;
+        container.move_(webview, 0, (wh - height) / 2);
+        webview.set_size_request(ww, height);
+        webview.set_zoom_level(scale_factor);
     }
 }
 
@@ -155,11 +211,11 @@ impl<T: Eq + Default + Clone> Schedule<T> {
     /// Update the scheduled layouts and return Some(id) if we need to change
     fn update(&mut self, new: Vec<T>) -> Option<T> {
         // determine the currently shown layout
-        let cur_id = self.index.map(|i| self.layouts[i].clone()).unwrap_or_default();
+        let cur_t = self.current();
         self.layouts = new;
 
         // if this layout is also in the new schedule, keep it
-        if let Some(new_index) = self.layouts.iter().position(|id| id == &cur_id) {
+        if let Some(new_index) = self.layouts.iter().position(|t| t == &cur_t) {
             self.index = Some(new_index);
             None
         } else if !self.layouts.is_empty() {
@@ -185,6 +241,11 @@ impl<T: Eq + Default + Clone> Schedule<T> {
             self.index = Some(new_index);
             Some(self.layouts[new_index].clone())
         }
+    }
+
+    /// Return current layout.
+    fn current(&self) -> T {
+        self.index.map(|i| self.layouts[i].clone()).unwrap_or_default()
     }
 }
 

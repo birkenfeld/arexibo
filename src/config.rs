@@ -31,9 +31,9 @@ pub struct PlayerSettings {
     #[serde(default)]
     pub size_y: i32,
     #[serde(default)]
-    pub position_x: i32,
+    pub pos_x: i32,
     #[serde(default)]
-    pub position_y: i32,
+    pub pos_y: i32,
 }
 
 impl PlayerSettings {

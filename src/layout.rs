@@ -39,7 +39,7 @@ pub struct Translator {
     tree: Option<Element>,
     out: BufWriter<fs::File>,
     regions: Vec<i32>,
-    size: (u32, u32),
+    size: (i32, i32),
 }
 
 impl Translator {
@@ -53,7 +53,7 @@ impl Translator {
         Ok(Self { tree, out, regions: Vec::new(), size: (0, 0) })
     }
 
-    pub fn translate(mut self) -> Result<(u32, u32)> {
+    pub fn translate(mut self) -> Result<(i32, i32)> {
         let tree = self.tree.take().unwrap();
         self.write_header(&tree)?;
         for region in tree.find_all("region") {
@@ -66,6 +66,8 @@ impl Translator {
     }
 
     fn write_header(&mut self, el: &Element) -> Result<()> {
+        self.size = (el.parse_attr("width")?, el.parse_attr("height")?);
+
         writeln!(self.out, "<!doctype html>\n<html><head>")?;
         writeln!(self.out, "<meta charset='utf-8'>")?;
         writeln!(self.out, "<script src='jquery.min.js'></script>")?;
@@ -152,7 +154,7 @@ impl Translator {
         Ok(())
     }
 
-    fn write_media(&mut self, rid: i32, [x, y, w, h]: [u32; 4],
+    fn write_media(&mut self, rid: i32, [x, y, w, h]: [i32; 4],
                    media: &Element) -> Result<Option<(i32, i32, String, Option<String>)>> {
         let mid = media.parse_attr("id")?;
         let opts = media.find("options").context("no options")?;

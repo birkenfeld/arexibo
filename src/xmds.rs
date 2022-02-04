@@ -68,8 +68,8 @@ impl Cms {
                 embedded_server_port: tree.parse_child("embeddedServerPort")?,
                 size_x: tree.parse_child("sizeX")?,
                 size_y: tree.parse_child("sizeY")?,
-                position_x: tree.parse_child("offsetX")?,
-                position_y: tree.parse_child("offsetY")?,
+                pos_x: tree.parse_child("offsetX")?,
+                pos_y: tree.parse_child("offsetY")?,
             }))
         }
     }
