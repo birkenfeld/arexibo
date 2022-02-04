@@ -3,8 +3,9 @@
 
 //! Various utilities.
 
-use std::{fs, fmt, str::FromStr};
+use std::{fs, fmt, str::FromStr, time::Duration};
 use anyhow::{Context, Result};
+use dbus::blocking::{Connection};
 use md5::{Md5, Digest};
 use nix::unistd::gethostname;
 use serde::{Deserialize, Deserializer, Serializer, de::Error};
@@ -139,4 +140,18 @@ pub fn get_display_id() -> String {
         gethostname(&mut buffer).ok().and_then(|s| s.to_str().ok())
     );
     hex::encode(&Md5::digest(idstring.as_bytes()))
+}
+
+
+const SS_SVC: &str   = "org.freedesktop.ScreenSaver";
+const SS_PATH: &str  = "/ScreenSaver";
+const SS_IFACE: &str = "org.freedesktop.ScreenSaver";
+const SS_METH: &str  = "Inhibit";
+
+/// Inhibit the screensaver.
+pub fn inhibit_screensaver() -> Result<u32> {
+    let conn = Connection::new_session().context("connecting to dbus")?;
+    let proxy = conn.with_proxy(SS_SVC, SS_PATH, Duration::from_millis(500));
+    let res: (u32,) = proxy.method_call(SS_IFACE, SS_METH, ("Arexibo", "Showing signage"))?;
+    Ok(res.0)
 }

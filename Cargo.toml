@@ -24,6 +24,7 @@ rand = "0.8"
 
 # GUI
 cairo-rs = { version = "0.14", features = ["png"] }
+dbus = "0.9"
 glib = "0.14"
 gio = "0.14"
 gdk = "0.14"
@@ -50,7 +51,8 @@ zmq = "0.9"
 elementtree = "0.7"
 
 [features]
-gui = []  # avoid long build times when working on backend
+gui = []  # to avoid long link times when working on backend
+default = ["gui"]
 
 [patch.crates-io]
 # work around a bug in 0.15.1; 0.15.2 is not on crates.io
