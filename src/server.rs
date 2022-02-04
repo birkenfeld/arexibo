@@ -5,7 +5,7 @@
 
 use std::{sync::Arc, fs, io::Read, io::Seek, thread};
 use std::path::{Path, PathBuf};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, ensure, Result};
 use tiny_http::{Request, Response, ResponseBox, Header, StatusCode};
 
 
@@ -125,9 +125,7 @@ fn parse_range(total_size: u64, header: String) -> Result<(u64, u64, u64)> {
         }
         _ => bail!("invalid Range header")
     };
-    if ! (from <= to && to < total_size) {
-        bail!("invalid Range from/to")
-    }
+    ensure!(from <= to && to < total_size, "invalid Range from/to");
     let size = to - from + 1;
     Ok((from, to, size))
 }

@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 use std::{fs, io::Read, path::PathBuf, sync::Arc};
-use anyhow::{bail, Context, Result};
+use anyhow::{ensure, Context, Result};
 use md5::{Md5, Digest};
 use serde::{Serialize, Deserialize};
 use ureq::Agent;
@@ -159,9 +159,7 @@ impl Cache {
                 } else {
                     self.download_xmds(id, typ, size, cms)?
                 };
-                if Md5::digest(&data).as_slice() != md5 {
-                    bail!("md5 mismatch");
-                }
+                ensure!(Md5::digest(&data).as_slice() == md5, "md5 mismatch");
                 fs::write(self.dir.join(&name), data)?;
 
                 if typ == "layout" {

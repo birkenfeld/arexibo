@@ -9,7 +9,7 @@ mod soap {
     include!(concat!(env!("OUT_DIR"), "/xmds_soap.rs"));
 }
 
-use anyhow::{bail, Context, Result};
+use anyhow::{ensure, Context, Result};
 use elementtree::Element;
 use serde::Serialize;
 use crate::config::{CmsSettings, PlayerSettings};
@@ -163,7 +163,7 @@ impl Cms {
     }
 
     pub fn blacklist(&mut self, media: i64, mtype: &str, reason: &str) -> Result<()> {
-        let success = self.service.BlackList(
+        let res = self.service.BlackList(
             soap::BlackListRequest {
                 serverKey: &self.cms_key,
                 hardwareKey: &self.hw_key,
@@ -171,8 +171,9 @@ impl Cms {
                 r#type: mtype,
                 reason,
             }
-        ).context("blacklisting media")?.success;
-        if !success { bail!("blacklisting not successful"); } else { Ok(()) }
+        ).context("blacklisting media")?;
+        ensure!(res.success, "blacklisting not successful");
+        Ok(())
     }
 
     pub fn submit_media_inventory(&mut self, inv: Vec<((&'static str, i64), bool)>) -> Result<()> {
@@ -187,59 +188,64 @@ impl Cms {
 
         // TODO: this doesn't seem to be processed properly
         let inv_xml = format!("<![CDATA[ {} ]]>", files.to_string()?);
-        let success = self.service.MediaInventory(
+        let res = self.service.MediaInventory(
             soap::MediaInventoryRequest {
                 serverKey: &self.cms_key,
                 hardwareKey: &self.hw_key,
                 mediaInventory: &inv_xml,
             }
-        ).context("submitting media inventory")?.success;
-        if !success { bail!("submitting inventory not successful"); } else { Ok(()) }
+        ).context("submitting media inventory")?;
+        ensure!(res.success, "submitting inventory not successful");
+        Ok(())
     }
 
     pub fn submit_log(&mut self, log_xml: &str) -> Result<()> {
-        let success = self.service.SubmitLog(
+        let res = self.service.SubmitLog(
             soap::SubmitLogRequest {
                 serverKey: &self.cms_key,
                 hardwareKey: &self.hw_key,
                 logXml: log_xml
             }
-        ).context("submitting logs")?.success;
-        if !success { bail!("submitting logs not successful"); } else { Ok(()) }
+        ).context("submitting logs")?;
+        ensure!(res.success, "submitting logs not successful");
+        Ok(())
     }
 
     pub fn submit_stats(&mut self, stat_xml: &str) -> Result<()> {
-        let success = self.service.SubmitStats(
+        let res = self.service.SubmitStats(
             soap::SubmitStatsRequest {
                 serverKey: &self.cms_key,
                 hardwareKey: &self.hw_key,
                 statXml: stat_xml
             }
-        ).context("submitting stats")?.success;
-        if !success { bail!("submitting stats not successful"); } else { Ok(()) }
+        ).context("submitting stats")?;
+        ensure!(res.success, "submitting stats not successful");
+        Ok(())
     }
 
     pub fn submit_screenshot(&mut self, shot: Vec<u8>) -> Result<()> {
-        let success = self.service.SubmitScreenShot(
+        let res = self.service.SubmitScreenShot(
             soap::SubmitScreenShotRequest {
                 serverKey: &self.cms_key,
                 hardwareKey: &self.hw_key,
                 screenShot: Base64Field(shot),
             }
-        ).context("submitting screenshot")?.success;
-        if !success { bail!("submitting screenshot not successful"); } else { Ok(()) }
+        ).context("submitting screenshot")?;
+        ensure!(res.success, "submitting screenshot not successful");
+        Ok(())
     }
 
     pub fn notify_status(&mut self, status: Status<'_>) -> Result<()> {
         let json_status = serde_json::to_string(&status)?;
-        let success = self.service.NotifyStatus(
+        let res = self.service.NotifyStatus(
             soap::NotifyStatusRequest {
                 serverKey: &self.cms_key,
                 hardwareKey: &self.hw_key,
                 status: &json_status,
             }
-        ).context("notifying status")?.success;
-        if !success { bail!("notify status not successful"); } else { Ok(()) }
+        ).context("notifying status")?;
+        ensure!(res.success, "status notification not successful");
+        Ok(())
     }
 }
 
