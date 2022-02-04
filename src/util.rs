@@ -63,10 +63,11 @@ impl log::Log for ConsoleLog {
         true
     }
     fn log(&self, record: &log::Record) {
-        if !record.module_path().map_or(true, |p| p.starts_with("arexibo")) {
+        let path = record.module_path().unwrap_or("");
+        if !path.starts_with("arexibo") {
             return;
         }
-        println!("{:5}: {}", record.level(), record.args());
+        println!("{:5}: [{}] {}", record.level(), path, record.args());
     }
     fn flush(&self) {}
 }
