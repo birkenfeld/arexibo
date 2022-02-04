@@ -11,6 +11,7 @@ mod soap {
 
 use anyhow::{bail, Context, Result};
 use elementtree::Element;
+use serde::Serialize;
 use crate::config::{CmsSettings, PlayerSettings};
 use crate::util::{Base64Field, ElementExt, retrieve_mac};
 use crate::resource::ReqFile;
@@ -228,14 +229,28 @@ impl Cms {
         if !success { bail!("submitting screenshot not successful"); } else { Ok(()) }
     }
 
-    pub fn notify_status(&mut self, status: &str) -> Result<()> {
+    pub fn notify_status(&mut self, status: Status<'_>) -> Result<()> {
+        let json_status = serde_json::to_string(&status)?;
         let success = self.service.NotifyStatus(
             soap::NotifyStatusRequest {
                 serverKey: &self.cms_key,
                 hardwareKey: &self.hw_key,
-                status,  // TODO: enum
+                status: &json_status,
             }
         ).context("notifying status")?.success;
         if !success { bail!("notify status not successful"); } else { Ok(()) }
     }
+}
+
+#[allow(non_snake_case)]
+#[derive(Serialize)]
+pub struct Status<'s> {
+    pub currentLayoutId: i64,
+    pub availableSpace: u64,
+    pub totalSpace: u64,
+    pub lastCommandSuccess: bool,
+    pub deviceName: &'s str,
+    pub timeZone: &'s str,
+    pub latitude: f64,
+    pub longitude: f64,
 }
