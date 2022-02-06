@@ -114,10 +114,12 @@ pub fn retrieve_mac() -> Option<String> {
     for entry in fs::read_dir("/sys/class/net").ok()? {
         let path = entry.ok()?.path();
         // addr_assign_type 0 means that it is an actual permanent address.
-        if let Ok("0\n") = fs::read_to_string(path.join("addr_assign_type")).as_deref() {
-            if let Ok(addr) = fs::read_to_string(path.join("address")) {
-                if !addr.ends_with(":00:00\n") {
-                    return Some(addr.trim().into());
+        if let Ok("0\n" | "3\n") = fs::read_to_string(path.join("addr_assign_type")).as_deref() {
+            if let Ok("1\n") = fs::read_to_string(path.join("carrier")).as_deref() {
+                if let Ok(addr) = fs::read_to_string(path.join("address")) {
+                    if !addr.ends_with(":00:00\n") {
+                        return Some(addr.trim().into());
+                    }
                 }
             }
         }
