@@ -166,8 +166,7 @@ impl Translator {
         writeln!(self.out, "  <!-- media {} -->", mid)?;
         match (media.get_attr("render"), media.get_attr("type")) {
             (Some("html"), _) |
-            (_, Some("text")) |
-            (_, Some("ticker")) => {
+            (_, Some("text" | "ticker")) => {
                 writeln!(self.out, "<iframe class='media r{}' id='m{}' src='{}.html' \
                                     style='left: {}px; top: {}px; width: {}px; \
                                     height: {}px;'></iframe>",

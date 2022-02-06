@@ -64,7 +64,7 @@ fn main_inner() -> anyhow::Result<()> {
     ensure!(workdir.exists(), "working directory does not exist");
 
     // check if we have a CMS config either stored, or given with arguments
-    let cms = if let (Some(address), Some(key)) = (args.host, args.key) {
+    let cms = if let Some((address, key)) = args.host.zip(args.key) {
         let display_id = args.display_id.unwrap_or_else(util::get_display_id);
         config::CmsSettings { address, key, display_id, proxy: args.proxy }
     } else if let Ok(from_json) = config::CmsSettings::from_file(&cmscfg) {

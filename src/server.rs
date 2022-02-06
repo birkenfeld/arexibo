@@ -6,6 +6,7 @@
 use std::{sync::Arc, fs, io::Read, io::Seek, thread};
 use std::path::{Path, PathBuf};
 use anyhow::{anyhow, bail, ensure, Result};
+use itertools::Itertools;
 use tiny_http::{Request, Response, ResponseBox, Header, StatusCode};
 
 
@@ -84,9 +85,9 @@ impl Server {
                 let ctype = match path.extension().and_then(|e| e.to_str()) {
                     Some("html") => "text/html",
                     Some("js") => "text/javascript",
-                    Some("ttf") | Some("otf") => "application/font-sfnt",
+                    Some("ttf" | "otf") => "application/font-sfnt",
+                    Some("jpg" | "jpeg") => "image/jpeg",
                     Some("png") => "image/png",
-                    Some("jpg") | Some("jpeg") => "image/jpeg",
                     Some("pdf") => "application/pdf",
                     Some("mp4") => "video/mp4",
                     Some("avi") => "video/avi",
@@ -119,8 +120,8 @@ const SPLASH_JPG: &[u8] = include_bytes!("../assets/splash.jpg");
 /// Parse a HTTP Range header.
 fn parse_range(total_size: u64, header: String) -> Result<(u64, u64, u64)> {
     let mut parts = header.split(&['=', '-'][..]);
-    let (from, to) = match (parts.next(), parts.next(), parts.next()) {
-        (Some("bytes"), Some(from), Some(to)) => {
+    let (from, to) = match parts.next_tuple() {
+        Some(("bytes", from, to)) => {
             (from.parse().unwrap_or(0), to.parse().unwrap_or(total_size - 1))
         }
         _ => bail!("invalid Range header")
