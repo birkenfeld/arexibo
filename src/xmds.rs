@@ -16,6 +16,7 @@ use crate::config::{CmsSettings, PlayerSettings};
 use crate::util::{Base64Field, ElementExt, retrieve_mac};
 use crate::resource::ReqFile;
 use crate::schedule::Schedule;
+use crate::logger::LogEntry;
 
 /// Proxy for the XMDS calls to the CMS.
 pub struct Cms {
@@ -198,12 +199,22 @@ impl Cms {
         Ok(())
     }
 
-    pub fn submit_log(&mut self, log_xml: &str) -> Result<()> {
+    pub fn submit_log(&mut self, entries: &[LogEntry]) -> Result<()> {
+        let mut logs = Element::new("logs");
+        for entry in entries {
+            let mut log = Element::new("log");
+            log.set_attr("date", entry.date.format("%Y-%m-%d %H:%M:%S").to_string());
+            log.set_attr("category", entry.category);
+            log.append_child(Element::new("message")).set_text(&entry.message);
+            logs.append_child(log);
+        }
+
+        let log_xml = format!("<![CDATA[{}]]>", logs.to_string()?);
         let res = self.service.SubmitLog(
             soap::SubmitLogRequest {
                 serverKey: &self.cms_key,
                 hardwareKey: &self.hw_key,
-                logXml: log_xml
+                logXml: &log_xml
             }
         ).context("submitting logs")?;
         ensure!(res.success, "submitting logs not successful");

@@ -59,23 +59,6 @@ impl ElementExt for elementtree::Element {
     }
 }
 
-/// Minimal console logger
-pub struct ConsoleLog;
-
-impl log::Log for ConsoleLog {
-    fn enabled(&self, _: &log::Metadata) -> bool {
-        true
-    }
-    fn log(&self, record: &log::Record) {
-        let path = record.module_path().unwrap_or("");
-        if !path.starts_with("arexibo") {
-            return;
-        }
-        println!("{:5}: [{}] {}", record.level(), path, record.args());
-    }
-    fn flush(&self) {}
-}
-
 
 pub fn percent_decode(s: &str) -> String {
     let mut res = String::new();

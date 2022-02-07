@@ -13,6 +13,7 @@ pub mod schedule;
 pub mod layout;
 pub mod xmds;
 pub mod xmr;
+pub mod logger;
 pub mod util;
 
 use std::path::PathBuf;
@@ -46,7 +47,7 @@ struct Args {
 }
 
 fn main() {
-    log::set_logger(&util::ConsoleLog).expect("failed to set logger");
+    log::set_logger(&logger::Logger).expect("failed to set logger");
     log::set_max_level(log::LevelFilter::Debug);
     if let Err(e) = main_inner() {
         log::error!("exiting on error: {:#}", e);

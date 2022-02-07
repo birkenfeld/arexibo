@@ -9,7 +9,7 @@ use crossbeam_channel::{after, never, select, tick, Receiver};
 use rand::rngs::OsRng;
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::{FromPrivateKey, ToPrivateKey, ToPublicKey}};
 use crate::config::{CmsSettings, PlayerSettings};
-use crate::{util, xmds, xmr};
+use crate::{logger, util, xmds, xmr};
 use crate::resource::{Cache, LayoutInfo};
 use crate::schedule::Schedule;
 
@@ -170,6 +170,9 @@ impl Handler {
         self.schedule = schedule;
         self.schedule_check();
 
+        // send log messages
+        self.xmds.submit_log(&logger::pop_entries())?;
+
         // collect status info
         let (avail, total) = util::space_info(&self.cache.dir())?;
         let status = xmds::Status {
@@ -181,8 +184,6 @@ impl Handler {
             timeZone: &util::timezone(),
         };
         self.xmds.notify_status(status)?;
-
-        // TODO: send logs (and stats)
 
         log::info!("collection successful");
         Ok(())

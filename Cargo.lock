@@ -43,6 +43,7 @@ dependencies = [
  "log",
  "md-5",
  "nix",
+ "parking_lot",
  "rand",
  "rsa",
  "serde",
