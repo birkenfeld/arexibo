@@ -188,11 +188,22 @@ impl Translator {
             }
             (_, Some("video")) => {
                 let filename = opts.find("uri").context("no video uri")?.text();
-                writeln!(self.out, "<video class='media r{}' id='m{}' src='{}' muted \
+                let mute = opts.find("mute").map_or(false, |el| el.text() == "1");
+                writeln!(self.out, "<video class='media r{}' id='m{}' src='{}' {} \
                                     style='left: {}px; top: {}px; width: {}px; \
                                     height: {}px;{}{}'></video>",
-                         rid, mid, filename, x, y, w, h, object_fit(opts), object_pos(opts))?;
-                custom_start = format!("$('#m{}')[0].play();", mid);
+                         rid, mid, filename, if mute { "muted" } else { "" },
+                         x, y, w, h, object_fit(opts), object_pos(opts))?;
+                if mute {
+                    custom_start = format!("$('#m{}')[0].play();", mid);
+                } else {
+                    // WebKit doesn't allow non-muted media to be started by JS,
+                    // even with media-playback-requires-user-gesture set to false.
+                    // However, if the script is executed from outside it seems
+                    // to work. So we request this by posting a request back.
+                    custom_start = format!(
+                        "window.webkit.messageHandlers.xibo.postMessage('play:{}');", mid);
+                }
                 custom_transition = Some(format!("$('#m{}')[0].onended = (e) => {{ \
                                                   e.target.fastSeek(0); ### }};", mid));
             }

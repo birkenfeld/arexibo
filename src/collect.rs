@@ -137,7 +137,7 @@ impl Handler {
             if !self.cache.has(&file) {
                 let filedesc = file.description();
                 let inventory = file.inventory();
-                log::info!("downloading: {}", filedesc);
+                log::info!("downloading required file: {}", filedesc);
                 match self.cache.download(file, &mut self.xmds)
                                 .with_context(|| format!("downloading {}", filedesc))
                 {

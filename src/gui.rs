@@ -75,13 +75,20 @@ pub fn run(settings: PlayerSettings, inspect: bool,
         @strong schedule, @strong base_uri, @weak webview, @weak window,
         @weak container => @default-return None,
         move |args| {
-            if let Some(event) = extract_js_string(args.get(1)) {
-                if event == "layout_done" {
+            if let Some(request) = extract_js_string(args.get(1)).as_deref() {
+                if request == "layout_done" {
+                    // layout has run through, need to change layouts?
                     if let Some(info) = schedule.borrow_mut().next() {
                         log::info!("showing next layout: {}", info.id);
                         apply_scale(info.size, &window, &container, &webview);
                         webview.load_uri(&format!("{}{}.xlf.html", base_uri, info.id));
                     }
+                } else if request.starts_with("play:") {
+                    // request to start a non-muted video which needs to come
+                    // from outside the webview...
+                    webview.run_javascript(
+                        &format!("document.getElementById('m{}').play();", &request[5..]),
+                        None::<&gio::Cancellable>, |_| ());
                 }
             }
             None
