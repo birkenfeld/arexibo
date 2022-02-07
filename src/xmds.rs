@@ -186,8 +186,7 @@ impl Cms {
             files.append_child(file);
         }
 
-        // TODO: this doesn't seem to be processed properly
-        let inv_xml = format!("<![CDATA[ {} ]]>", files.to_string()?);
+        let inv_xml = format!("<![CDATA[{}]]>", files.to_string()?);
         let res = self.service.MediaInventory(
             soap::MediaInventoryRequest {
                 serverKey: &self.cms_key,
