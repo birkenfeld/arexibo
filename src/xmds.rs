@@ -46,7 +46,7 @@ impl Cms {
             soap::RegisterDisplayRequest {
                 serverKey: &self.cms_key,
                 hardwareKey: &self.hw_key,
-                displayName: "Rust Display",
+                displayName: "Arexibo Display",
                 clientType: "linux",
                 clientVersion: clap::crate_version!(),
                 clientCode: 0,
