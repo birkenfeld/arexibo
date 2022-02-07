@@ -14,7 +14,7 @@ use gtk::{prelude::*, Fixed, Inhibit, Window, WindowType};
 use webkit2gtk::{WebContext, WebView, UserContentManager, SnapshotRegion, SnapshotOptions,
                  JavascriptResult};
 use webkit2gtk::traits::{UserContentManagerExt, SettingsExt, WebViewExt, WebInspectorExt};
-use crate::collect::Update;
+use crate::collect::{FromGui, ToGui};
 use crate::config::PlayerSettings;
 use crate::resource::LayoutInfo;
 
@@ -22,7 +22,7 @@ const LOGO_PNG: &[u8] = include_bytes!("../assets/logo.png");
 
 
 pub fn run(settings: PlayerSettings, inspect: bool,
-           updates: glib::Receiver<Update>, snaps: Sender<Vec<u8>>) -> Result<()> {
+           to_gui: glib::Receiver<ToGui>, from_gui: Sender<FromGui>) -> Result<()> {
     gtk::init().expect("failed to init gtk");
     let base_uri = format!("http://localhost:{}/", settings.embedded_server_port);
 
@@ -71,6 +71,8 @@ pub fn run(settings: PlayerSettings, inspect: bool,
 
     let schedule = Rc::new(RefCell::new(Schedule::<Arc<LayoutInfo>>::default()));
 
+    // handler for events from the webview content
+    let from_gui_2 = from_gui.clone();
     manager.connect_local("script-message-received::xibo", false, clone!(
         @strong schedule, @strong base_uri, @weak webview, @weak window,
         @weak container => @default-return None,
@@ -82,6 +84,7 @@ pub fn run(settings: PlayerSettings, inspect: bool,
                         log::info!("showing next layout: {}", info.id);
                         apply_scale(info.size, &window, &container, &webview);
                         webview.load_uri(&format!("{}{}.xlf.html", base_uri, info.id));
+                        from_gui_2.send(FromGui::Showing(info.id)).unwrap();
                     }
                 } else if request.starts_with("play:") {
                     // request to start a non-muted video which needs to come
@@ -95,32 +98,34 @@ pub fn run(settings: PlayerSettings, inspect: bool,
         }
     ))?;
 
-    updates.attach(None, clone!(
+    // handler for events from the collect backend
+    to_gui.attach(None, clone!(
         @weak webview, @weak window, @weak container => @default-return Continue(true),
         move |update| {
             match update {
-                Update::Screenshot => {
-                    let snaps = snaps.clone();
+                ToGui::Screenshot => {
+                    let channel = from_gui.clone();
                     webview.snapshot(
                         SnapshotRegion::Visible,
                         SnapshotOptions::NONE,
                         None::<&gio::Cancellable>,
                         move |result| match convert_shot(result) {
-                            Ok(data) => snaps.send(data).unwrap(),
+                            Ok(data) => channel.send(FromGui::Screenshot(data)).unwrap(),
                             Err(e) => log::warn!("could not create snapshot: {:#}", e),
                         });
                 }
-                Update::Settings(settings) => {
+                ToGui::Settings(settings) => {
                     window.set_title(&settings.display_name);
                     apply_size(&window, settings);
                     apply_scale(schedule.borrow().current().size,
                                 &window, &container, &webview);
                 }
-                Update::Layouts(new_layouts) => {
+                ToGui::Layouts(new_layouts) => {
                     if let Some(info) = schedule.borrow_mut().update(new_layouts) {
                         log::info!("new schedule, showing layout: {}", info.id);
                         apply_scale(info.size, &window, &container, &webview);
                         webview.load_uri(&format!("{}{}.xlf.html", base_uri, info.id));
+                        from_gui.send(FromGui::Showing(info.id)).unwrap();
                     }
                 }
             }

@@ -3,11 +3,11 @@
 
 //! Various utilities.
 
-use std::{fs, fmt, str::FromStr, time::Duration};
+use std::{fs, fmt, path::Path, str::FromStr, time::Duration};
 use anyhow::{Context, Result};
 use dbus::blocking::{Connection};
 use md5::{Md5, Digest};
-use nix::unistd::gethostname;
+use nix::{sys::statvfs, unistd::gethostname};
 use serde::{Deserialize, Deserializer, Serializer, de::Error};
 
 
@@ -157,4 +157,28 @@ pub fn inhibit_screensaver() -> Result<u32> {
     let proxy = conn.with_proxy(SS_SVC, SS_PATH, Duration::from_millis(500));
     let res: (u32,) = proxy.method_call(SS_IFACE, SS_METH, ("Arexibo", "Showing signage"))?;
     Ok(res.0)
+}
+
+
+/// Get available and total space in directory.
+pub fn space_info(path: &Path) -> Result<(u64, u64)> {
+    let res = statvfs::statvfs(path)?;
+    Ok((res.blocks_available() * res.fragment_size(),
+        res.blocks() * res.fragment_size()))
+}
+
+/// Get current IANA timezone name ("Europe/Berlin").
+pub fn timezone() -> String {
+    // try /etc/timezone which should have the name
+    if let Ok(zone) = fs::read_to_string("/etc/timezone") {
+        return zone.trim().into();
+    }
+    // otherwise, /etc/localtime should be a symlink to a zoneinfo file
+    else if let Ok(tgt) = fs::read_link("/etc/localtime") {
+        let path = tgt.to_string_lossy();
+        if let Some(pos) = path.find("/zoneinfo/") {
+            return path[pos + "/zoneinfo/".len()..].into();
+        }
+    }
+    Default::default()
 }

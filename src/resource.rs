@@ -115,6 +115,10 @@ impl Cache {
         Ok(Self { dir, agent: cms.make_agent()?, content })
     }
 
+    pub fn dir(&self) -> &PathBuf {
+        &self.dir
+    }
+
     pub fn has(&self, res: &ReqFile) -> bool {
         match *res {
             ReqFile::Resource { id, updated, .. } => {

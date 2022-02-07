@@ -77,10 +77,10 @@ fn main_inner() -> anyhow::Result<()> {
     cms.to_file(&cmscfg).context("writing new CMS config")?;
 
     // create the backend handler and required channels
-    let (updates_tx, updates_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-    let (snaps_tx, snaps_rx) = crossbeam_channel::bounded(1);
+    let (togui_tx, togui_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+    let (fromgui_tx, fromgui_rx) = crossbeam_channel::bounded(1);
 
-    let handler = collect::Handler::new(cms, args.clear, &workdir, updates_tx, snaps_rx)
+    let handler = collect::Handler::new(cms, args.clear, &workdir, togui_tx, fromgui_rx)
         .context("creating backend handler")?;
     let settings = handler.player_settings();
 
@@ -99,11 +99,11 @@ fn main_inner() -> anyhow::Result<()> {
     #[cfg(feature = "gui")]
     {
         std::thread::spawn(|| handler.run());
-        gui::run(settings, args.inspect, updates_rx, snaps_tx)
+        gui::run(settings, args.inspect, togui_rx, fromgui_tx)
     }
     #[cfg(not(feature = "gui"))]
     {
-        let _unused = (updates_rx, snaps_tx);
+        let _unused = (togui_rx, fromgui_tx);
         handler.run();
         Ok(())
     }

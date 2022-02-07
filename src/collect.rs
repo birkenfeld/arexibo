@@ -9,33 +9,40 @@ use crossbeam_channel::{after, never, select, tick, Receiver};
 use rand::rngs::OsRng;
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::{FromPrivateKey, ToPrivateKey, ToPublicKey}};
 use crate::config::{CmsSettings, PlayerSettings};
-use crate::{xmds, xmr};
+use crate::{util, xmds, xmr};
 use crate::resource::{Cache, LayoutInfo};
 use crate::schedule::Schedule;
 
 /// Messages sent to the GUI thread
-pub enum Update {
+pub enum ToGui {
     Settings(PlayerSettings),
     Layouts(Vec<Arc<LayoutInfo>>),
     Screenshot,
 }
 
+/// Messages received from the GUI thread
+pub enum FromGui {
+    Showing(i64),
+    Screenshot(Vec<u8>),
+}
+
 /// Backend handler that performs the collect loop and XMDS requests.
 pub struct Handler {
-    updates: glib::Sender<Update>,
-    snaps: Receiver<Vec<u8>>,
+    to_gui: glib::Sender<ToGui>,
+    from_gui: Receiver<FromGui>,
     settings: PlayerSettings,
     xmds: xmds::Cms,
     cache: Cache,
     xmr: Receiver<xmr::Message>,
     schedule: Schedule,
     layouts: Vec<Arc<LayoutInfo>>,
+    current_layout: i64,
 }
 
 impl Handler {
     /// Create a new handler, with channels to the GUI thread.
     pub fn new(cms: CmsSettings, clear_cache: bool, workdir: &Path,
-               updates: glib::Sender<Update>, snaps: Receiver<Vec<u8>>) -> Result<Self> {
+               to_gui: glib::Sender<ToGui>, from_gui: Receiver<FromGui>) -> Result<Self> {
         let (privkey, pubkey) = load_or_create_keypair(workdir)?;
         let cache = Cache::new(&cms, workdir.join("res"), clear_cache).context("creating cache")?;
         let schedule = Schedule::default();
@@ -52,7 +59,8 @@ impl Handler {
             let (manager, xmr) = xmr::Manager::new(&cms, &settings.xmr_network_address, privkey)?;
             thread::spawn(|| manager.run());
 
-            let mut slf = Self { updates, snaps, settings, cache, xmds, xmr, schedule, layouts };
+            let mut slf = Self { to_gui, from_gui, settings, cache, xmds, xmr, schedule,
+                                 layouts, current_layout: 0 };
             slf.update_settings();
             Ok(slf)
         } else {
@@ -84,7 +92,7 @@ impl Handler {
                 },
                 // timer channel that fires when screenshot is needed
                 recv(screenshot) -> _ => {
-                    self.updates.send(Update::Screenshot).unwrap();
+                    self.to_gui.send(ToGui::Screenshot).unwrap();
                     screenshot = if self.settings.screenshot_interval != 0 {
                         after(Duration::from_secs(self.settings.screenshot_interval * 60))
                     } else {
@@ -102,10 +110,15 @@ impl Handler {
                     Err(_) => ()
                 },
                 // channel for screenshot data from the GUI thread
-                recv(self.snaps) -> data => if let Ok(data) = data {
-                    if let Err(e) = self.xmds.submit_screenshot(data) {
-                        log::error!("submitting screenshot: {:#}", e);
+                recv(self.from_gui) -> data => match data {
+                    Ok(FromGui::Screenshot(data)) => {
+                        if let Err(e) = self.xmds.submit_screenshot(data) {
+                            log::error!("submitting screenshot: {:#}", e);
+                        }
                     }
+                    Ok(FromGui::Showing(layout)) =>
+                        self.current_layout = layout,
+                    _ => ()
                 }
             }
         }
@@ -157,7 +170,19 @@ impl Handler {
         self.schedule = schedule;
         self.schedule_check();
 
-        // TODO: send logs and stats
+        // collect status info
+        let (avail, total) = util::space_info(&self.cache.dir())?;
+        let status = xmds::Status {
+            currentLayoutId: self.current_layout,
+            availableSpace: avail,
+            totalSpace: total,
+            lastCommandSuccess: false,  // not implemented yet
+            deviceName: &self.settings.display_name,
+            timeZone: &util::timezone(),
+        };
+        self.xmds.notify_status(status)?;
+
+        // TODO: send logs (and stats)
 
         log::info!("collection successful");
         Ok(())
@@ -168,7 +193,7 @@ impl Handler {
         let new_layouts = self.schedule.layouts_now(&self.cache);
         if new_layouts != self.layouts {
             log::info!("schedule: new layouts {:?}", new_layouts);
-            self.updates.send(Update::Layouts(new_layouts.clone())).unwrap();
+            self.to_gui.send(ToGui::Layouts(new_layouts.clone())).unwrap();
             self.layouts = new_layouts;
         }
     }
@@ -176,7 +201,7 @@ impl Handler {
     /// Apply new player settings.
     fn update_settings(&mut self) {
         // let the GUI know to reconfigure itself
-        self.updates.send(Update::Settings(self.settings.clone())).unwrap();
+        self.to_gui.send(ToGui::Settings(self.settings.clone())).unwrap();
 
         match &*self.settings.log_level {
             "trace" => log::set_max_level(log::LevelFilter::Trace),

@@ -257,6 +257,6 @@ pub struct Status<'s> {
     pub lastCommandSuccess: bool,
     pub deviceName: &'s str,
     pub timeZone: &'s str,
-    pub latitude: f64,
-    pub longitude: f64,
+    // pub latitude: f64,
+    // pub longitude: f64,
 }
