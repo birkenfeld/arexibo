@@ -1,5 +1,9 @@
 # Arexibo
 
+<p align="center">
+  <img src="https://github.com/birkenfeld/arexibo/blob/master/assets/logo.png?raw=true" alt="Logo"/>
+</p>
+
 Arexibo is an alternate Digital Signage Player for [Xibo](https://xibo.org.uk),
 implemented in Rust with the GTK GUI components, for Linux platforms.
 
