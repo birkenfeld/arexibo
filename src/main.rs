@@ -24,8 +24,7 @@ use clap::Parser;
 #[clap(author, version, about)]
 struct Args {
     /// The directory to place config files and cached content.
-    /// Defaults to the current directory.
-    workdir: Option<String>,
+    envdir: PathBuf,
     /// The CMS host including scheme, e.g. https://xibo.example.com/
     #[clap(long)]
     host: Option<String>,
@@ -59,10 +58,10 @@ fn main_inner() -> anyhow::Result<()> {
 
     let args = Args::parse();
 
-    // check working directory argument
-    let workdir = PathBuf::from(args.workdir.as_deref().unwrap_or("."));
-    let cmscfg = workdir.join("cms.json");
-    ensure!(workdir.exists(), "working directory does not exist");
+    // check environment directory argument
+    ensure!(args.envdir.exists(), "environment directory '{}' does not exist",
+            args.envdir.display());
+    let cmscfg = args.envdir.join("cms.json");
 
     // check if we have a CMS config either stored, or given with arguments
     let cms = if let Some((address, key)) = args.host.zip(args.key) {
@@ -81,7 +80,7 @@ fn main_inner() -> anyhow::Result<()> {
     let (togui_tx, togui_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
     let (fromgui_tx, fromgui_rx) = crossbeam_channel::bounded(1);
 
-    let handler = collect::Handler::new(cms, args.clear, &workdir, togui_tx, fromgui_rx)
+    let handler = collect::Handler::new(cms, args.clear, &args.envdir, togui_tx, fromgui_rx)
         .context("creating backend handler")?;
     let settings = handler.player_settings();
 
@@ -93,7 +92,8 @@ fn main_inner() -> anyhow::Result<()> {
     }
 
     // create the interval webserver on the requested port
-    let webserver = server::Server::new(workdir.join("res"), settings.embedded_server_port)
+    let webserver = server::Server::new(args.envdir.join("res"),
+                                        settings.embedded_server_port)
         .context("creating internal HTTP server")?;
     webserver.start_pool();
 

@@ -41,10 +41,10 @@ pub struct Handler {
 
 impl Handler {
     /// Create a new handler, with channels to the GUI thread.
-    pub fn new(cms: CmsSettings, clear_cache: bool, workdir: &Path,
+    pub fn new(cms: CmsSettings, clear_cache: bool, envdir: &Path,
                to_gui: glib::Sender<ToGui>, from_gui: Receiver<FromGui>) -> Result<Self> {
-        let (privkey, pubkey) = load_or_create_keypair(workdir)?;
-        let cache = Cache::new(&cms, workdir.join("res"), clear_cache).context("creating cache")?;
+        let (privkey, pubkey) = load_or_create_keypair(envdir)?;
+        let cache = Cache::new(&cms, envdir.join("res"), clear_cache).context("creating cache")?;
         let schedule = Schedule::default();
         let layouts = Default::default();
 

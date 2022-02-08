@@ -13,13 +13,22 @@ Currently, no binary builds are provided.
 
 To build from source, you need:
 
-* The [Rust toolchain](https://www.rust-lang.org/), version >= 1.54.
-  Refer to https://rustup.rs/ for the easiest way to install.
-* Development headers for `dbus` (>= 1.6), `webkit2gtk` (>= 2.22), and
-  `zeromq` (>= 4.1), as well as a normal build system including
-  `pkg-config`.
+* The [Rust toolchain](https://www.rust-lang.org/), version >= 1.54.  Refer to
+  https://rustup.rs/ for the easiest way to install, if the Linux distribution
+  provided package is too old.
 
-Then, in the checkout, run:
+* Development headers for `dbus` (>= 1.6), `webkit2gtk` (>= 2.22), and `zeromq`
+  (>= 4.1), as well as a normal build system including `pkg-config`.
+
+To build, run:
+
+```
+$ cargo build --release
+```
+
+The binary is placed in `target/release/arexibo` and can be run from there.
+
+To install, run:
 
 ```
 $ cargo install --path . --root /usr
@@ -48,14 +57,15 @@ arexibo --host <https://my.cms/> --key <key> <dir>
 Further configuration options are `--display-id` (which is normally
 auto-generated from machine characteristics) and `--proxy` (if needed).
 
-Arexibo will cache the configuration in the directory, so that in the future
-you only need to start with
+Arexibo will cache the configuration in the directory, so that in the future you
+only need to start with
 
 ```
 arexibo <dir>
 ```
 
-Note: the GUI window will only show up once the display is authorized!
+Log messages are printed to stdout.  The GUI window will only show up once the
+display is authorized.
 
 
 ## Standalone setup with X server
