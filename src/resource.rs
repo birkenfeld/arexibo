@@ -73,6 +73,7 @@ pub struct ResourceInfo {
     pub layoutid: i64,
     pub regionid: i64,
     pub updated: i64,
+    pub duration: Option<f64>,
 }
 
 /// A resource in the local cache.
@@ -144,9 +145,10 @@ impl Cache {
                 // TODO:
                 // - process (replace [[ViewPort]], get DURATION)
                 // - re-download after given updateInterval
+                let duration = None;
                 fs::write(self.dir.join(&fname), &data)?;
                 self.content.insert(fname, Resource::Resource(Arc::new(
-                    ResourceInfo { id, layoutid, regionid, updated }
+                    ResourceInfo { id, layoutid, regionid, updated, duration }
                 )));
                 self.save()?;
             }

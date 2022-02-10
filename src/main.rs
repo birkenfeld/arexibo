@@ -105,7 +105,6 @@ fn main_inner() -> anyhow::Result<()> {
     #[cfg(not(feature = "gui"))]
     {
         let _unused = (togui_rx, fromgui_tx);
-        handler.run();
-        Ok(())
+        handler.run()
     }
 }

@@ -142,6 +142,7 @@ fn extract_js_string(arg: Option<&glib::Value>) -> Option<String> {
     Some(arg?.get::<JavascriptResult>().ok()?.js_value()?.to_string())
 }
 
+// TODO: resizing not working in all cases yet
 fn apply_size(window: &Window, settings: PlayerSettings) {
     let (sw, sh) = if let Some(screen) = window.screen() {
         let pos = window.position();

@@ -49,7 +49,7 @@ impl Schedule {
         let mut cur_prio = 0;
         let mut layouts = Vec::new();
         for &(from, to, lid, prio) in &self.schedules {
-            if from >= now && now <= to {
+            if from <= now && now <= to {
                 match prio.cmp(&cur_prio) {
                     Ordering::Less => continue,
                     Ordering::Greater => {

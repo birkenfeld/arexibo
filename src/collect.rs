@@ -6,6 +6,7 @@
 use std::{path::Path, sync::Arc, thread, time::Duration};
 use anyhow::{bail, Context, Result};
 use crossbeam_channel::{after, never, select, tick, Receiver};
+use itertools::Itertools;
 use rand::rngs::OsRng;
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::{FromPrivateKey, ToPrivateKey, ToPublicKey}};
 use crate::config::{CmsSettings, PlayerSettings};
@@ -73,7 +74,7 @@ impl Handler {
     }
 
     /// Run the main collect loop.
-    pub fn run(mut self) {
+    pub fn run(mut self) -> Result<()> {
         let mut collect = after(Duration::from_secs(0));  // do first collect immediately
         let mut screenshot = if self.settings.screenshot_interval != 0 {
             after(Duration::from_secs(self.settings.screenshot_interval * 60))
@@ -193,7 +194,8 @@ impl Handler {
     fn schedule_check(&mut self) {
         let new_layouts = self.schedule.layouts_now(&self.cache);
         if new_layouts != self.layouts {
-            log::info!("schedule: new layouts {:?}", new_layouts);
+            log::info!("new layouts in schedule: {}",
+                       new_layouts.iter().map(|l| l.id).format(", ").to_string());
             self.to_gui.send(ToGui::Layouts(new_layouts.clone())).unwrap();
             self.layouts = new_layouts;
         }
