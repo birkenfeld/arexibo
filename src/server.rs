@@ -54,6 +54,7 @@ impl Server {
             path => {
                 let path = dir.join(&path[1..]);
                 if !path.is_file() {
+                    log::warn!("processing HTTP req {}: 404 not found", req.url());
                     return Ok(Response::empty(404).boxed());
                 }
                 let mut fp = fs::File::open(&path)?;

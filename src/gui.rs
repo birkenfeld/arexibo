@@ -85,6 +85,9 @@ pub fn run(settings: PlayerSettings, inspect: bool,
                         apply_scale(info.size, &window, &container, &webview);
                         webview.load_uri(&format!("{}{}.xlf.html", base_uri, info.id));
                         from_gui_2.send(FromGui::Showing(info.id)).unwrap();
+                    } else {
+                        // TODO: record that the layout is done so that we
+                        // can switch to the next one on update.
                     }
                 } else if request.starts_with("play:") {
                     // request to start a non-muted video which needs to come
