@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use md5::{Md5, Digest};
 use serde::{Serialize, Deserialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct PlayerSettings {
     #[serde(default = "default_collect_interval")]
     pub collect_interval: u64,

@@ -145,12 +145,11 @@ fn extract_js_string(arg: Option<&glib::Value>) -> Option<String> {
     Some(arg?.get::<JavascriptResult>().ok()?.js_value()?.to_string())
 }
 
-// TODO: resizing not working in all cases yet
 fn apply_size(window: &Window, settings: PlayerSettings) {
-    let (sw, sh) = if let Some(screen) = window.screen() {
+    let (screen_w, screen_h) = if let Some(screen) = window.screen() {
         let pos = window.position();
         let monitor = screen.monitor_at_point(pos.0, pos.1);
-        let size = screen.monitor_workarea(monitor);
+        let size = screen.monitor_geometry(monitor);
         (size.width, size.height)
     } else {
         return;
@@ -158,10 +157,11 @@ fn apply_size(window: &Window, settings: PlayerSettings) {
     let PlayerSettings { mut size_x, mut size_y, pos_x, pos_y, .. } = settings;
     if size_x == 0 && size_y == 0 && pos_x == 0 && pos_y == 0 {
         window.fullscreen();
-        window.set_size_request(sw, sh);
+        window.set_size_request(screen_w, screen_h);
+        window.resize(screen_w, screen_h);
     } else {
-        if size_x == 0 { size_x = sw; }
-        if size_y == 0 { size_y = sh; }
+        if size_x == 0 { size_x = screen_w; }
+        if size_y == 0 { size_y = screen_h; }
         window.unfullscreen();
         window.set_size_request(size_x, size_y);
         window.resize(size_x, size_y);
@@ -170,33 +170,33 @@ fn apply_size(window: &Window, settings: PlayerSettings) {
 }
 
 fn apply_scale(size: (i32, i32), window: &Window, container: &Fixed, webview: &WebView) {
-    let (ww, wh) = window.size_request();
-    let (mut lw, mut lh) = size;
+    let (window_w, window_h) = window.size_request();
+    let (mut layout_w, mut layout_h) = size;
     // the easy case: direct match
-    if ww == lw && wh == lh {
+    if window_w == layout_w && window_h == layout_h {
         container.move_(webview, 0, 0);
-        webview.set_size_request(lw, lh);
+        webview.set_size_request(layout_w, layout_h);
         webview.set_zoom_level(1.0);
         return;
     }
     // nothing specified for the layout (e.g. splash)
-    if lw == 0 || lh == 0 {
-        lw = 1920;
-        lh = 1080;
+    if layout_w == 0 || layout_h == 0 {
+        layout_w = 1920;
+        layout_h = 1080;
     }
-    let win_aspect = (ww as f64) / (wh as f64);
-    let layout_aspect = (lw as f64) / (lh as f64);
-    if win_aspect > layout_aspect {
-        let scale_factor = (wh as f64) / (lh as f64);
-        let width = (lw as f64 * scale_factor).round() as i32;
-        container.move_(webview, (ww - width) / 2, 0);
-        webview.set_size_request(width, wh);
+    let window_aspect = (window_w as f64) / (window_h as f64);
+    let layout_aspect = (layout_w as f64) / (layout_h as f64);
+    if window_aspect > layout_aspect {
+        let scale_factor = (window_h as f64) / (layout_h as f64);
+        let webview_w = (layout_w as f64 * scale_factor).round() as i32;
+        container.move_(webview, (window_w - webview_w) / 2, 0);
+        webview.set_size_request(webview_w, window_h);
         webview.set_zoom_level(scale_factor);
     } else {
-        let scale_factor = (ww as f64) / (lw as f64);
-        let height = (lh as f64 * scale_factor).round() as i32;
-        container.move_(webview, 0, (wh - height) / 2);
-        webview.set_size_request(ww, height);
+        let scale_factor = (window_w as f64) / (layout_w as f64);
+        let webview_h = (layout_h as f64 * scale_factor).round() as i32;
+        container.move_(webview, 0, (window_h - webview_h) / 2);
+        webview.set_size_request(window_w, webview_h);
         webview.set_zoom_level(scale_factor);
     }
 }
