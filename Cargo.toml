@@ -44,7 +44,7 @@ serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 
 # network
-tiny_http = { version = "0.10" }
+tiny_http = "0.11"
 ureq = { version = "2.4", features = ["socks-proxy"] }
 zmq = "0.9"
 
