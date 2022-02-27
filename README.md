@@ -4,7 +4,7 @@
   <img src="https://github.com/birkenfeld/arexibo/blob/master/assets/logo.png?raw=true" alt="Logo"/>
 </p>
 
-Arexibo is an alternate Digital Signage Player for [Xibo](https://xibo.org.uk),
+Arexibo is an unofficial alternate Digital Signage Player for [Xibo](https://xibo.org.uk),
 implemented in Rust with the GTK GUI components, for Linux platforms.
 
 It is currently quite incomplete.  Don't expect any particular feature to work
