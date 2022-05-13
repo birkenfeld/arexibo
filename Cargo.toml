@@ -1,7 +1,7 @@
 [package]
 name = "arexibo"
 version = "0.2.0"
-edition = "2018"
+edition = "2021"
 authors = ["Georg Brandl <g.brandl@fz-juelich.de>"]
 license = "AGPL-3+"
 
@@ -16,27 +16,27 @@ base64 = "0.13"
 chrono = "0.4"
 clap = { version = "3.0", features = ["cargo", "derive"] }
 crossbeam-channel = "0.5"
-parking_lot = "0.11"
+parking_lot = "0.12"
 hex = "0.4"
 itertools = "0.10"
 log = "0.4"
-nix = "0.23"
+nix = "0.24"
 rand = "0.8"
 
 # GUI
-cairo-rs = { version = "0.14", features = ["png"] }
+cairo-rs = { version = "0.15", features = ["png"] }
 dbus = "0.9"
-glib = "0.14"
-gio = "0.14"
-gdk = "0.14"
-gdk-pixbuf = "0.14"
-gtk = "0.14"
-webkit2gtk = { version = "0.15", features = ["v2_22"] }
+glib = "0.15"
+gio = "0.15"
+gdk = "0.15"
+gdk-pixbuf = "0.15"
+gtk = "0.15"
+webkit2gtk = { version = "0.18", features = ["v2_22"] }
 
 # crypto
 arc4 = "0.1"
 md-5 = "0.10"
-rsa = "0.5"
+rsa = "0.6"
 
 # file formats
 elementtree = "0.7"
@@ -54,7 +54,3 @@ elementtree = "0.7"
 [features]
 gui = []  # to avoid long link times when working on backend
 default = ["gui"]
-
-[patch.crates-io]
-# work around a bug in 0.15.1; 0.15.2 is not on crates.io
-webkit2gtk-sys = { git = "https://github.com/tauri-apps/webkit2gtk-rs", rev = "webkit2gtk-sys-v0.15.2" }

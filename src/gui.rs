@@ -58,10 +58,10 @@ pub fn run(settings: PlayerSettings, inspect: bool,
     window.show_all();
 
     if let Some(gdkwin) = window.window() {
-        gdkwin.set_background_rgba(&gdk::RGBA { red: 0., green: 0., blue: 0., alpha: 1. });
-        gdkwin.set_cursor(Some(&gdk::Cursor::for_display(
+        gdkwin.set_background_rgba(&gdk::RGBA::new(0., 0., 0., 1.));
+        gdkwin.set_cursor(gdk::Cursor::for_display(
             &gdk::Display::default().unwrap(),
-            gdk::CursorType::BlankCursor)));
+            gdk::CursorType::BlankCursor).as_ref());
     }
 
     window.connect_delete_event(|_, _| {
@@ -99,7 +99,7 @@ pub fn run(settings: PlayerSettings, inspect: bool,
             }
             None
         }
-    ))?;
+    ));
 
     // handler for events from the collect backend
     to_gui.attach(None, clone!(
@@ -150,7 +150,7 @@ fn apply_size(window: &Window, settings: PlayerSettings) {
         let pos = window.position();
         let monitor = screen.monitor_at_point(pos.0, pos.1);
         let size = screen.monitor_geometry(monitor);
-        (size.width, size.height)
+        (size.width(), size.height())
     } else {
         return;
     };

@@ -8,7 +8,7 @@ use anyhow::{bail, Context, Result};
 use crossbeam_channel::{after, never, select, tick, Receiver};
 use itertools::Itertools;
 use rand::rngs::OsRng;
-use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::{FromPrivateKey, ToPrivateKey, ToPublicKey}};
+use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::{DecodePrivateKey, EncodePrivateKey, EncodePublicKey}};
 use crate::config::{CmsSettings, PlayerSettings};
 use crate::{logger, util, xmds, xmr};
 use crate::resource::{Cache, LayoutInfo};
@@ -227,9 +227,9 @@ fn load_or_create_keypair(dir: &Path) -> Result<(RsaPrivateKey, String)> {
     } else {
         log::info!("generating new RSA key for XMR, please wait...");
         let key = RsaPrivateKey::new(&mut OsRng, 2048)?;
-        key.write_pkcs8_pem_file(dir.join("id_rsa"))?;
+        key.write_pkcs8_pem_file(dir.join("id_rsa"), Default::default())?;
         key
     };
-    let pubkey = RsaPublicKey::from(&privkey).to_public_key_pem()?;
+    let pubkey = RsaPublicKey::from(&privkey).to_public_key_pem(Default::default())?;
     Ok((privkey, pubkey))
 }
