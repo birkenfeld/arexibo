@@ -110,7 +110,7 @@ impl Server {
 const SPLASH_HTML: &[u8] = br#"<!doctype html>
 <html>
 <body style="margin: 0">
-<img style="width: 100%; height: 100%" src="splash.jpg">
+<img style="display: block; width: 100%; height: 100%" src="splash.jpg">
 </body>
 </html>
 "#;
