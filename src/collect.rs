@@ -147,11 +147,12 @@ impl Handler {
 
         // download all missing files
         let mut result = Vec::new();
-        for file in required {
+        let total = required.len();
+        for (i, file) in required.into_iter().enumerate() {
             if !self.cache.has(&file) {
                 let filedesc = file.description();
                 let inventory = file.inventory();
-                log::info!("downloading required file: {}", filedesc);
+                log::info!("downloading required file {}/{}: {}", i+1, total, filedesc);
                 match self.cache.download(file, &mut self.xmds)
                                 .with_context(|| format!("downloading {}", filedesc))
                 {
