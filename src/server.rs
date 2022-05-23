@@ -74,11 +74,13 @@ impl Server {
                             vec![
                                 Header::from_bytes(&b"Content-Range"[..],
                                                    range.as_bytes()).unwrap(),
+                                Header::from_bytes(&b"Content-Type"[..],
+                                                   &b"video/mp4"[..]).unwrap(),
                             ],
                             stream,
                             Some(size as usize),
                             None
-                        ).boxed());
+                        ).with_chunked_threshold(usize::MAX).boxed());
                     }
                 }
 
