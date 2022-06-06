@@ -143,7 +143,7 @@ WjzRywo8WVYosQbu1QJBAIK8lUC6fBRr2ElLltNV/cmR2To5rUYSQJJB9rDw9Inv
 cwFD2YnuxuF9szIeWPTmHUl6aXRIByuKNexbHqTeNhY=
 -----END RSA PRIVATE KEY-----
 ";
-    use rsa::pkcs1::FromRsaPrivateKey;
+    use rsa::pkcs1::DecodeRsaPrivateKey;
     let privkey = rsa::RsaPrivateKey::from_pkcs1_pem(pem).unwrap();
     let msg = JsonMessage::new(&privkey,
                                b"uKgfpneak5Qx5vppLlJZEEcFQ5Y/xrk45ysmnsIVQGvndFR0R86pPRRDPxvqSBgCDb\
