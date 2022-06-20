@@ -1,9 +1,12 @@
 [package]
 name = "arexibo"
+description = "A client (player) for the Xibo signage system"
 version = "0.2.2"
 edition = "2021"
 authors = ["Georg Brandl <g.brandl@fz-juelich.de>"]
-license = "AGPL-3+"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/birkenfeld/arexibo"
+keywords = ["xibo", "signage", "gtk"]
 
 [[bin]]
 name = "arexibo"
