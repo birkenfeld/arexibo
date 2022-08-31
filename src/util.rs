@@ -117,13 +117,12 @@ pub fn get_display_id() -> String {
     }
     // Try the DMI board id, the MAC address and the hostname.
     // Process all info into a big string and hash it.
-    let mut buffer = [0u8; 64];
     let idstring = format!(
         "{:?}{:?}{:?}{:?}",
         fs::read_to_string("/sys/devices/virtual/dmi/id/board_name"),
         fs::read_to_string("/sys/devices/virtual/dmi/id/board_version"),
         retrieve_mac(),
-        gethostname(&mut buffer).ok().and_then(|s| s.to_str().ok())
+        gethostname().ok().and_then(|s| s.into_string().ok())
     );
     hex::encode(&Md5::digest(idstring.as_bytes()))
 }
