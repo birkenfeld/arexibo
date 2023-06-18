@@ -5,11 +5,11 @@
 
 use anyhow::{Context, Result};
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
-use chrono::{DateTime, Duration, FixedOffset, offset::Utc};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use rsa::RsaPrivateKey;
 use serde::{Deserialize, Deserializer, de::Error};
 use serde_json::from_slice;
+use time::{OffsetDateTime, Duration};
 use crate::config::CmsSettings;
 
 /// Possible messages to forward to the collect thread.
@@ -80,7 +80,7 @@ struct JsonMessage {
     action: String,
     #[serde(rename = "createdDt")]
     #[serde(deserialize_with = "deserialize_datetime")]
-    created: DateTime<FixedOffset>,
+    created: OffsetDateTime,
     #[serde(default)]
     ttl: i64,
 }
@@ -95,7 +95,7 @@ impl JsonMessage {
     }
 
     fn is_expired(&self) -> bool {
-        self.created + Duration::seconds(self.ttl) < Utc::now()
+        self.created + Duration::seconds(self.ttl) < OffsetDateTime::now_utc()
     }
 
     fn into_msg(self) -> Option<Message> {
@@ -115,9 +115,10 @@ impl JsonMessage {
     }
 }
 
-fn deserialize_datetime<'de, D: Deserializer<'de>>(d: D) -> std::result::Result<DateTime<FixedOffset>, D::Error> {
+fn deserialize_datetime<'de, D: Deserializer<'de>>(d: D) -> std::result::Result<OffsetDateTime, D::Error> {
     let s = <String as Deserialize>::deserialize(d)?;
-    DateTime::parse_from_rfc3339(&s).map_err(|_| D::Error::custom("invalid datetime string"))
+    OffsetDateTime::parse(&s, &time::format_description::well_known::Rfc3339)
+        .map_err(|_| D::Error::custom("invalid datetime string"))
 }
 
 fn decrypt_private_key(enc_key: &[u8], private_key: &RsaPrivateKey) -> Result<Vec<u8>> {

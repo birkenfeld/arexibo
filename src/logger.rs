@@ -3,12 +3,12 @@
 
 //! Xibo logger.
 
-use chrono::{DateTime, Local};
+use time::OffsetDateTime;
 use parking_lot::{Mutex, const_mutex};
 
 /// A single cached log entry.
 pub struct LogEntry {
-    pub date: DateTime<Local>,
+    pub date: OffsetDateTime,
     pub category: &'static str,
     pub message: String,
 }
@@ -42,7 +42,7 @@ impl log::Log for Logger {
             entries.drain(0..500).for_each(drop);
         }
         entries.push(LogEntry {
-            date: Local::now(),
+            date: OffsetDateTime::now_local().unwrap(),
             category: record.level().as_str(),
             message: record.args().to_string(),
         });

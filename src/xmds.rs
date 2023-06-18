@@ -13,7 +13,7 @@ use anyhow::{ensure, Context, Result};
 use elementtree::Element;
 use serde::Serialize;
 use crate::config::{CmsSettings, PlayerSettings};
-use crate::util::{Base64Field, ElementExt, retrieve_mac};
+use crate::util::{TIME_FMT, Base64Field, ElementExt, retrieve_mac};
 use crate::resource::ReqFile;
 use crate::schedule::Schedule;
 use crate::logger::LogEntry;
@@ -203,7 +203,7 @@ impl Cms {
         let mut logs = Element::new("logs");
         for entry in entries {
             let mut log = Element::new("log");
-            log.set_attr("date", entry.date.format("%Y-%m-%d %H:%M:%S").to_string());
+            log.set_attr("date", entry.date.format(&TIME_FMT).expect("time fmt"));
             log.set_attr("category", entry.category);
             log.append_child(Element::new("message")).set_text(&entry.message);
             logs.append_child(log);

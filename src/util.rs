@@ -9,8 +9,13 @@ use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use dbus::blocking::{Connection};
 use md5::{Md5, Digest};
 use nix::{sys::statvfs, unistd::gethostname};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Deserializer, Serializer, de::Error};
 
+/// Common time format used by the CMS.
+pub static TIME_FMT: Lazy<Vec<time::format_description::FormatItem>> = Lazy::new(|| {
+    time::format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]").unwrap()
+});
 
 /// Wrapper to send binary data as Base64 over SOAP.
 #[derive(Debug)]

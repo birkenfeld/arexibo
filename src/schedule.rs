@@ -5,12 +5,12 @@
 
 use std::{cmp::Ordering, sync::Arc};
 use anyhow::{Context, Result};
-use chrono::{NaiveDateTime, Local};
+use time::OffsetDateTime;
 use elementtree::Element;
 use crate::resource::{Cache, LayoutInfo};
-use crate::util::ElementExt;
+use crate::util::{TIME_FMT, ElementExt};
 
-type Dt = NaiveDateTime;
+type Dt = OffsetDateTime;
 type LayoutId = i64;
 
 #[derive(Debug, Default)]
@@ -18,8 +18,6 @@ pub struct Schedule {
     default: Option<LayoutId>,
     schedules: Vec<(Dt, Dt, LayoutId, i32)>,
 }
-
-const FMT: &str = "%Y-%m-%d %H:%M:%S";
 
 impl Schedule {
     pub fn parse(tree: Element) -> Result<Self> {
@@ -29,8 +27,8 @@ impl Schedule {
             let prio = layout.parse_attr("priority")?;
             let from = layout.get_attr("fromdt").context("missing fromdt")?;
             let to = layout.get_attr("todt").context("missing todt")?;
-            let from = NaiveDateTime::parse_from_str(from, FMT).context("invalid fromdt")?;
-            let to = NaiveDateTime::parse_from_str(to, FMT).context("invalid todt")?;
+            let from = Dt::parse(from, &TIME_FMT).context("invalid fromdt")?;
+            let to = Dt::parse(to, &TIME_FMT).context("invalid todt")?;
             schedules.push((from, to, id, prio));
         }
         let mut default = None;
@@ -45,7 +43,7 @@ impl Schedule {
     }
 
     pub fn layouts_now(&self, cache: &Cache) -> Vec<Arc<LayoutInfo>> {
-        let now = Local::now().naive_local();
+        let now = OffsetDateTime::now_local().unwrap();
         let mut cur_prio = 0;
         let mut layouts = Vec::new();
         for &(from, to, lid, prio) in &self.schedules {
