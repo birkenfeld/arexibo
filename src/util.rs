@@ -5,6 +5,7 @@
 
 use std::{fs, fmt, path::Path, str::FromStr, time::Duration};
 use anyhow::{Context, Result};
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use dbus::blocking::{Connection};
 use md5::{Md5, Digest};
 use nix::{sys::statvfs, unistd::gethostname};
@@ -17,14 +18,14 @@ pub struct Base64Field(pub Vec<u8>);
 
 impl fmt::Display for Base64Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", base64::encode(&self.0))
+        write!(f, "{}", BASE64.encode(&self.0))
     }
 }
 
 impl FromStr for Base64Field {
     type Err = anyhow::Error;
     fn from_str(s: &str) -> Result<Self> {
-        Ok(Base64Field(base64::decode(s)?))
+        Ok(Base64Field(BASE64.decode(s)?))
     }
 }
 

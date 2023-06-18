@@ -2,6 +2,7 @@
 name = "arexibo"
 description = "A client (player) for the Xibo signage system"
 version = "0.2.3"
+rust-version = "1.66"
 edition = "2021"
 authors = ["Georg Brandl <g.brandl@fz-juelich.de>"]
 license = "AGPL-3.0-or-later"
@@ -15,15 +16,15 @@ path = "src/main.rs"
 [dependencies]
 # general
 anyhow = "1.0"
-base64 = "0.13"
+base64 = "0.21"
 chrono = "0.4"
-clap = { version = "3.0", features = ["cargo", "derive"] }
+clap = { version = "3.2", features = ["cargo", "derive"] }
 crossbeam-channel = "0.5"
 parking_lot = "0.12"
 hex = "0.4"
 itertools = "0.10"
 log = "0.4"
-nix = "0.25"
+nix = "0.26"
 rand = "0.8"
 
 # GUI
@@ -39,7 +40,7 @@ webkit2gtk = { version = "0.18", features = ["v2_22"] }
 # crypto
 arc4 = "0.1"
 md-5 = "0.10"
-rsa = "0.7"
+rsa = "0.9"
 
 # file formats
 elementtree = "1.2"
@@ -48,11 +49,8 @@ serde_json = "1.0"
 
 # network
 tiny_http = "0.12"
-ureq = { version = "2.4", features = ["socks-proxy"] }
-zmq = "0.9"
-
-# Rust 1.58 pins
-time = "=0.3.13"
+ureq = { version = "2.7", features = ["socks-proxy"] }
+zmq = "0.10"
 
 [build-dependencies]
 elementtree = "1.2"

@@ -4,6 +4,7 @@
 //! Receive, decrypt and handle incoming XMR messages from CMS.
 
 use anyhow::{Context, Result};
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use chrono::{DateTime, Duration, FixedOffset, offset::Utc};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use rsa::RsaPrivateKey;
@@ -86,8 +87,8 @@ struct JsonMessage {
 
 impl JsonMessage {
     fn new(private_key: &RsaPrivateKey, key: &[u8], content: &[u8]) -> Result<Self> {
-        let enc_key = base64::decode(key)?;
-        let mut msg = base64::decode(content)?;
+        let enc_key = BASE64.decode(key)?;
+        let mut msg = BASE64.decode(content)?;
         let msg_key = decrypt_private_key(&enc_key, private_key)?;
         arc4::Arc4::with_key(&msg_key).encrypt(&mut msg);
         Ok(from_slice(&msg)?)
@@ -120,8 +121,7 @@ fn deserialize_datetime<'de, D: Deserializer<'de>>(d: D) -> std::result::Result<
 }
 
 fn decrypt_private_key(enc_key: &[u8], private_key: &RsaPrivateKey) -> Result<Vec<u8>> {
-    let padding = rsa::PaddingScheme::new_pkcs1v15_encrypt();
-    let dec_data = private_key.decrypt(padding, enc_key).context("failed to decrypt PK")?;
+    let dec_data = private_key.decrypt(rsa::Pkcs1v15Encrypt, enc_key).context("failed to decrypt PK")?;
     Ok(dec_data)
 }
 
