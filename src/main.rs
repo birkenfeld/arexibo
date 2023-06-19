@@ -54,6 +54,7 @@ fn main() {
 }
 
 fn main_inner() -> anyhow::Result<()> {
+    logger::init();
     log::info!("Arexibo {} starting up...", clap::crate_version!());
 
     let args = Args::parse();

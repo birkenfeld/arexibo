@@ -3,8 +3,8 @@
 
 //! Xibo logger.
 
-use time::OffsetDateTime;
-use parking_lot::{Mutex, const_mutex};
+use time::{OffsetDateTime, util::local_offset};
+use parking_lot::Mutex;
 
 /// A single cached log entry.
 pub struct LogEntry {
@@ -14,7 +14,7 @@ pub struct LogEntry {
 }
 
 
-static LOG_ENTRIES: Mutex<Vec<LogEntry>> = const_mutex(Vec::new());
+static LOG_ENTRIES: Mutex<Vec<LogEntry>> = Mutex::new(Vec::new());
 
 /// Xibo logger, logs to console and stores entries for transfer to
 /// the display.
@@ -53,4 +53,11 @@ impl log::Log for Logger {
 
 pub fn pop_entries() -> Vec<LogEntry> {
     std::mem::take(&mut LOG_ENTRIES.lock())
+}
+
+pub fn init() {
+    // allow getting the local TZ offset in threads
+    unsafe {
+        local_offset::set_soundness(local_offset::Soundness::Unsound);
+    }
 }
