@@ -1,4 +1,4 @@
-// Xibo player Rust implementation, (c) 2022 Georg Brandl.
+// Xibo player Rust implementation, (c) 2022-2024 Georg Brandl.
 // Licensed under the GNU AGPL, version 3 or later.
 
 //! Internal webserver to point the webview to.
