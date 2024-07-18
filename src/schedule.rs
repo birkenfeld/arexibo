@@ -5,30 +5,34 @@
 
 use std::{cmp::Ordering, sync::Arc};
 use anyhow::{Context, Result};
-use time::OffsetDateTime;
+use time::{OffsetDateTime, PrimitiveDateTime};
 use elementtree::Element;
 use crate::resource::{Cache, LayoutInfo};
 use crate::util::{TIME_FMT, ElementExt};
 
-type Dt = OffsetDateTime;
 type LayoutId = i64;
 
 #[derive(Debug, Default)]
 pub struct Schedule {
     default: Option<LayoutId>,
-    schedules: Vec<(Dt, Dt, LayoutId, i32)>,
+    schedules: Vec<(OffsetDateTime, OffsetDateTime, LayoutId, i32)>,
 }
 
 impl Schedule {
     pub fn parse(tree: Element) -> Result<Self> {
+        let tz_offset = OffsetDateTime::now_local().unwrap().offset();
         let mut schedules = Vec::new();
         for layout in tree.find_all("layout") {
             let id = layout.parse_attr("file")?;
             let prio = layout.parse_attr("priority")?;
             let from = layout.get_attr("fromdt").context("missing fromdt")?;
             let to = layout.get_attr("todt").context("missing todt")?;
-            let from = Dt::parse(from, &TIME_FMT).context("invalid fromdt")?;
-            let to = Dt::parse(to, &TIME_FMT).context("invalid todt")?;
+            let from = PrimitiveDateTime::parse(from, &TIME_FMT)
+                .context("invalid fromdt")?
+                .assume_offset(tz_offset);
+            let to = PrimitiveDateTime::parse(to, &TIME_FMT)
+                .context("invalid todt")?
+                .assume_offset(tz_offset);
             schedules.push((from, to, id, prio));
         }
         let mut default = None;
