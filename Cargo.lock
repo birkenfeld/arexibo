@@ -71,7 +71,7 @@ checksum = "c23cd09ec21d3f6b62f9b1fb495e43d09dc1d125aab8f51c0b0dc43eaa349347"
 
 [[package]]
 name = "arexibo"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anyhow",
  "arc4",
