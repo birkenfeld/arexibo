@@ -89,11 +89,11 @@ pub fn run(settings: PlayerSettings, inspect: bool,
                         // TODO: record that the layout is done so that we
                         // can switch to the next one on update.
                     }
-                } else if request.starts_with("play:") {
+                } else if let Some(play_id) = request.strip_prefix("play:") {
                     // request to start a non-muted video which needs to come
                     // from outside the webview...
                     webview.run_javascript(
-                        &format!("document.getElementById('m{}').play();", &request[5..]),
+                        &format!("document.getElementById('m{}').play();", play_id),
                         None::<&gio::Cancellable>, |_| ());
                 }
             }

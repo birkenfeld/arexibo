@@ -176,7 +176,7 @@ impl Handler {
         self.xmds.submit_log(&logger::pop_entries())?;
 
         // collect status info
-        let (avail, total) = util::space_info(&self.cache.dir())?;
+        let (avail, total) = util::space_info(self.cache.dir())?;
         let status = xmds::Status {
             currentLayoutId: self.current_layout,
             availableSpace: avail,

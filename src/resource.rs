@@ -146,7 +146,7 @@ impl Cache {
                 // - process (replace [[ViewPort]], get DURATION)
                 // - re-download after given updateInterval
                 let duration = None;
-                fs::write(self.dir.join(&fname), &data)?;
+                fs::write(self.dir.join(&fname), data)?;
                 self.content.insert(fname, Resource::Resource(Arc::new(
                     ResourceInfo { id, layoutid, regionid, updated, duration }
                 )));
@@ -172,7 +172,7 @@ impl Cache {
                     // translate the layout into HTML
                     let xl = layout::Translator::new(
                         &self.dir.join(&name),
-                        &self.dir.join(&format!("{}.html", name))
+                        &self.dir.join(format!("{}.html", name))
                     )?;
                     let size = xl.translate()?;
                     self.content.insert(name, Resource::Layout(Arc::new(

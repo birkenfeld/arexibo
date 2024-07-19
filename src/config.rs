@@ -74,7 +74,7 @@ impl CmsSettings {
 
     pub fn xmr_channel(&self) -> String {
         let to_hash = format!("{}{}{}", self.address, self.key, self.display_id);
-        hex::encode(&Md5::digest(&to_hash))
+        hex::encode(Md5::digest(to_hash))
     }
 
     pub fn make_agent(&self) -> Result<ureq::Agent> {

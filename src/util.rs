@@ -94,7 +94,7 @@ pub fn ser_hex<S: Serializer>(v: &[u8], s: S) -> std::result::Result<S::Ok, S::E
 /// (De)serializing bytestrings for JSON
 pub fn de_hex<'de, D: Deserializer<'de>>(d: D) -> std::result::Result<Vec<u8>, D::Error> {
     let s = <String as Deserialize>::deserialize(d)?;
-    hex::decode(&s).map_err(|_| D::Error::custom("invalid hex string"))
+    hex::decode(s).map_err(|_| D::Error::custom("invalid hex string"))
 }
 
 
@@ -130,7 +130,7 @@ pub fn get_display_id() -> String {
         retrieve_mac(),
         gethostname().ok().and_then(|s| s.into_string().ok())
     );
-    hex::encode(&Md5::digest(idstring.as_bytes()))
+    hex::encode(Md5::digest(idstring.as_bytes()))
 }
 
 
