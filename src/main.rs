@@ -79,7 +79,8 @@ fn main_inner() -> anyhow::Result<()> {
     cms.to_file(&cmscfg).context("writing new CMS config")?;
 
     // create the backend handler and required channels
-    let (togui_tx, togui_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+    #[allow(deprecated)]
+    let (togui_tx, togui_rx) = glib::MainContext::channel(glib::source::Priority::DEFAULT);
     let (fromgui_tx, fromgui_rx) = crossbeam_channel::bounded(1);
 
     let handler = collect::Handler::new(cms, args.clear, &args.envdir, togui_tx, fromgui_rx)

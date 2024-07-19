@@ -8,12 +8,12 @@ use std::{cell::RefCell, io::Cursor, rc::Rc, sync::Arc};
 use anyhow::{anyhow, Result};
 use cairo::{ImageSurface, Surface};
 use crossbeam_channel::Sender;
-use glib::{clone, prelude::*};
+use glib::{clone, ControlFlow, Propagation, prelude::*};
 use gdk_pixbuf::Pixbuf;
-use gtk::{prelude::*, Fixed, Inhibit, Window, WindowType};
+use gtk::{prelude::*, Fixed, Window, WindowType};
 use webkit2gtk::{WebContext, WebView, UserContentManager, SnapshotRegion, SnapshotOptions,
                  JavascriptResult};
-use webkit2gtk::traits::{UserContentManagerExt, SettingsExt, WebViewExt, WebInspectorExt};
+use webkit2gtk::{UserContentManagerExt, SettingsExt, WebViewExt, WebInspectorExt};
 use crate::collect::{FromGui, ToGui};
 use crate::config::PlayerSettings;
 use crate::resource::LayoutInfo;
@@ -58,7 +58,9 @@ pub fn run(settings: PlayerSettings, inspect: bool,
     window.show_all();
 
     if let Some(gdkwin) = window.window() {
-        gdkwin.set_background_rgba(&gdk::RGBA::new(0., 0., 0., 1.));
+        gdkwin.set_background_pattern(Some(
+            &cairo::SolidPattern::from_rgba(0., 0., 0., 1.)
+        ));
         gdkwin.set_cursor(gdk::Cursor::for_display(
             &gdk::Display::default().unwrap(),
             gdk::CursorType::BlankCursor).as_ref());
@@ -66,7 +68,7 @@ pub fn run(settings: PlayerSettings, inspect: bool,
 
     window.connect_delete_event(|_, _| {
         gtk::main_quit();
-        Inhibit(false)
+        Propagation::Proceed
     });
 
     let schedule = Rc::new(RefCell::new(Schedule::<Arc<LayoutInfo>>::default()));
@@ -103,7 +105,7 @@ pub fn run(settings: PlayerSettings, inspect: bool,
 
     // handler for events from the collect backend
     to_gui.attach(None, clone!(
-        @weak webview, @weak window, @weak container => @default-return Continue(true),
+        @weak webview, @weak window, @weak container => @default-return ControlFlow::Continue,
         move |update| {
             match update {
                 ToGui::Screenshot => {
@@ -132,7 +134,7 @@ pub fn run(settings: PlayerSettings, inspect: bool,
                     }
                 }
             }
-            Continue(true)
+            ControlFlow::Continue
         }
     ));
 
@@ -146,10 +148,11 @@ fn extract_js_string(arg: Option<&glib::Value>) -> Option<String> {
 }
 
 fn apply_size(window: &Window, settings: PlayerSettings) {
-    let (screen_w, screen_h) = if let Some(screen) = window.screen() {
+    let (screen_w, screen_h) = if let Some(screen) = GtkWindowExt::screen(window) {
+        let display = screen.display();
         let pos = window.position();
-        let monitor = screen.monitor_at_point(pos.0, pos.1);
-        let size = screen.monitor_geometry(monitor);
+        let monitor = display.monitor_at_point(pos.0, pos.1).expect("monitor");
+        let size = monitor.geometry();
         (size.width(), size.height())
     } else {
         return;
