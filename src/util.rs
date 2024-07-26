@@ -133,6 +133,12 @@ pub fn get_display_id() -> String {
     hex::encode(Md5::digest(idstring.as_bytes()))
 }
 
+/// Generate an initial display name.  Tries the hostname.
+pub fn get_display_name() -> String {
+    gethostname().ok().and_then(|s| s.into_string().ok())
+                      .unwrap_or_else(|| "Arexibo Display".into())
+}
+
 
 const SS_SVC: &str   = "org.freedesktop.ScreenSaver";
 const SS_PATH: &str  = "/ScreenSaver";

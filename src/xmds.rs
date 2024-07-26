@@ -13,7 +13,7 @@ use anyhow::{ensure, Context, Result};
 use elementtree::Element;
 use serde::Serialize;
 use crate::config::{CmsSettings, PlayerSettings};
-use crate::util::{TIME_FMT, Base64Field, ElementExt, retrieve_mac};
+use crate::util::{TIME_FMT, Base64Field, ElementExt, retrieve_mac, get_display_name};
 use crate::resource::ReqFile;
 use crate::schedule::Schedule;
 use crate::logger::LogEntry;
@@ -34,8 +34,8 @@ impl Cms {
         Ok(Self {
             service: soap::Service::new(format!("{}/xmds.php?v=5", cms.address),
                                         cms.make_agent()?),
-            display_name: cms.display_name.as_ref().map_or_else(
-                || "Arexibo Display".into(), |s| s.to_owned()),
+            display_name: cms.display_name.as_ref().map_or_else(get_display_name,
+                                                                |name| name.to_owned()),
             mac_addr: retrieve_mac().unwrap_or_else(|| "00:00:00:00:00:00".into()),
             channel: cms.xmr_channel(),
             cms_key: cms.key.to_owned(),
