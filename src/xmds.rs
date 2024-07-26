@@ -21,6 +21,7 @@ use crate::logger::LogEntry;
 /// Proxy for the XMDS calls to the CMS.
 pub struct Cms {
     service: soap::Service,
+    display_name: String,
     mac_addr: String,
     channel: String,
     cms_key: String,
@@ -33,6 +34,8 @@ impl Cms {
         Ok(Self {
             service: soap::Service::new(format!("{}/xmds.php?v=5", cms.address),
                                         cms.make_agent()?),
+            display_name: cms.display_name.as_ref().map_or_else(
+                || "Arexibo Display".into(), |s| s.to_owned()),
             mac_addr: retrieve_mac().unwrap_or_else(|| "00:00:00:00:00:00".into()),
             channel: cms.xmr_channel(),
             cms_key: cms.key.to_owned(),
@@ -46,7 +49,7 @@ impl Cms {
             soap::RegisterDisplayRequest {
                 serverKey: &self.cms_key,
                 hardwareKey: &self.hw_key,
-                displayName: "Arexibo Display",
+                displayName: &self.display_name,
                 clientType: "linux",
                 clientVersion: clap::crate_version!(),
                 clientCode: 0,

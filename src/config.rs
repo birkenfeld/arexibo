@@ -58,6 +58,7 @@ pub struct CmsSettings {
     pub address: String,
     pub key: String,
     pub display_id: String,
+    pub display_name: Option<String>,
     pub proxy: Option<String>,
 }
 
