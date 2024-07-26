@@ -72,7 +72,6 @@ impl Translator {
 
         writeln!(self.out, "<!doctype html>\n<html><head>")?;
         writeln!(self.out, "<meta charset='utf-8'>")?;
-        writeln!(self.out, "<script src='jquery.min.js'></script>")?;
         writeln!(self.out, "<script type='text/javascript'>{}</script>", SCRIPT)?;
         writeln!(self.out, "<style type='text/css'>{}", LAYOUT_CSS)?;
 
@@ -90,7 +89,8 @@ impl Translator {
 
     fn write_footer(&mut self) -> Result<()> {
         // start all regions' first item
-        writeln!(self.out, "<script type='text/javascript'>\n$(document).ready(function() {{")?;
+        writeln!(self.out, "<script type='text/javascript'>\n\
+                            document.addEventListener('DOMContentLoaded', function() {{")?;
         for rid in &self.regions {
             writeln!(self.out, "  r{}_s0(true);", rid)?;
         }
@@ -135,9 +135,9 @@ impl Translator {
 
             // if only one item is present, don't need to hide the others
             if nitems > 1 {
-                writeln!(self.out, "  $('.r{}').css('visibility', 'hidden');", rid)?;
+                writeln!(self.out, "  for (el of document.querySelectorAll('.r{}')) el.style.visibility = 'hidden';", rid)?;
             }
-            writeln!(self.out, "  $('#m{}').css('visibility', 'visible'); {}", mid, custom_start)?;
+            writeln!(self.out, "  document.querySelector('#m{}').style.visibility = 'visible'; {}", mid, custom_start)?;
 
             // schedule the next one: either after duration, or with custom code
             let next_i = if i == sequence.len() - 1 { 0 } else { i+1 };
@@ -195,7 +195,7 @@ impl Translator {
                          rid, mid, filename, if mute { "muted" } else { "" },
                          x, y, w, h, object_fit(opts), object_pos(opts))?;
                 if mute {
-                    custom_start = format!("$('#m{}')[0].play();", mid);
+                    custom_start = format!("document.querySelector('#m{}').play();", mid);
                 } else {
                     // WebKit doesn't allow non-muted media to be started by JS,
                     // even with media-playback-requires-user-gesture set to false.
@@ -204,7 +204,7 @@ impl Translator {
                     custom_start = format!(
                         "window.webkit.messageHandlers.xibo.postMessage('play:{}');", mid);
                 }
-                custom_transition = Some(format!("$('#m{}')[0].onended = (e) => {{ \
+                custom_transition = Some(format!("document.querySelector('#m{}').onended = (e) => {{ \
                                                   e.target.fastSeek(0); ### }};", mid));
             }
             _ => {
