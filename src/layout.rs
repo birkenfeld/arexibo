@@ -217,8 +217,8 @@ impl Translator {
 }
 
 fn object_fit(el: &Element) -> &'static str {
-    match el.def_attr("scaleType", "center") {
-        "stretch" => " object-fit: fill;",
+    match el.find("scaleType") {
+        Some(e) if e.text() == "stretch" => " object-fit: fill;",
         _ => " object-fit: contain;",
     }
 }
