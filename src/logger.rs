@@ -3,7 +3,7 @@
 
 //! Xibo logger.
 
-use time::{OffsetDateTime, util::local_offset};
+use time::OffsetDateTime;
 use parking_lot::Mutex;
 
 /// A single cached log entry.
@@ -53,11 +53,4 @@ impl log::Log for Logger {
 
 pub fn pop_entries() -> Vec<LogEntry> {
     std::mem::take(&mut LOG_ENTRIES.lock())
-}
-
-pub fn init() {
-    // allow getting the local TZ offset in threads
-    unsafe {
-        local_offset::set_soundness(local_offset::Soundness::Unsound);
-    }
 }
