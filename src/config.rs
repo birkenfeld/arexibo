@@ -3,10 +3,11 @@
 
 //! Definitions for the player configuration.
 
-use std::{fs::File, path::Path};
+use std::{fs::File, path::Path, sync::Arc};
 use anyhow::{Context, Result};
 use md5::{Md5, Digest};
 use serde::{Serialize, Deserialize};
+use rustls::{ClientConfig, client::danger::{ServerCertVerifier, ServerCertVerified, HandshakeSignatureValid}};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct PlayerSettings {
@@ -62,6 +63,59 @@ pub struct CmsSettings {
     pub proxy: Option<String>,
 }
 
+#[derive(Debug)]
+struct NoVerification;
+
+impl ServerCertVerifier for NoVerification {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &rustls::pki_types::CertificateDer<'_>,
+        _intermediates: &[rustls::pki_types::CertificateDer<'_>],
+        _server_name: &rustls::pki_types::ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: rustls::pki_types::UnixTime,
+    ) -> std::result::Result<ServerCertVerified, rustls::Error> {
+        Ok(ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        _message: &[u8],
+        _cert: &rustls::pki_types::CertificateDer<'_>,
+        _dss: &rustls::DigitallySignedStruct,
+    ) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        Ok(HandshakeSignatureValid::assertion())
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        _message: &[u8],
+        _cert: &rustls::pki_types::CertificateDer<'_>,
+        _dss: &rustls::DigitallySignedStruct,
+    ) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        Ok(HandshakeSignatureValid::assertion())
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        use rustls::SignatureScheme::*;
+        vec![
+            RSA_PKCS1_SHA1,
+            ECDSA_SHA1_Legacy,
+            RSA_PKCS1_SHA256,
+            ECDSA_NISTP256_SHA256,
+            RSA_PKCS1_SHA384,
+            ECDSA_NISTP384_SHA384,
+            RSA_PKCS1_SHA512,
+            ECDSA_NISTP521_SHA512,
+            RSA_PSS_SHA256,
+            RSA_PSS_SHA384,
+            RSA_PSS_SHA512,
+            ED25519,
+            ED448,
+        ]
+    }
+}
+
 impl CmsSettings {
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
         serde_json::from_reader(File::open(path.as_ref())?)
@@ -78,13 +132,32 @@ impl CmsSettings {
         hex::encode(Md5::digest(to_hash))
     }
 
-    pub fn make_agent(&self) -> Result<ureq::Agent> {
-        Ok(if let Some(proxy) = &self.proxy {
-            ureq::AgentBuilder::new()
-                .proxy(ureq::Proxy::new(proxy)?)
-                .build()
+    pub fn make_agent(&self, no_verify: bool) -> Result<ureq::Agent> {
+        Ok(if no_verify {
+            let _ = rustls::crypto::ring::default_provider().install_default();
+            let tls_config = ClientConfig::builder()
+                .dangerous()
+                .with_custom_certificate_verifier(Arc::new(NoVerification))
+                .with_no_client_auth();
+            if let Some(proxy) = &self.proxy {
+                ureq::AgentBuilder::new()
+                    .proxy(ureq::Proxy::new(proxy)?)
+                    .tls_config(Arc::new(tls_config))
+                    .build()
+            } else {
+                ureq::AgentBuilder::new()
+                    .tls_config(Arc::new(tls_config))
+                    .build()
+            }
         } else {
-            ureq::Agent::new()
+            if let Some(proxy) = &self.proxy {
+                ureq::AgentBuilder::new()
+                    .proxy(ureq::Proxy::new(proxy)?)
+                    .build()
+            } else {
+                ureq::AgentBuilder::new()
+                    .build()
+            }
         })
     }
 }

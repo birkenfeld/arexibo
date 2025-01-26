@@ -30,10 +30,10 @@ pub struct Cms {
 }
 
 impl Cms {
-    pub fn new(cms: &CmsSettings, pub_key: String) -> Result<Self> {
+    pub fn new(cms: &CmsSettings, pub_key: String, no_verify: bool) -> Result<Self> {
         Ok(Self {
             service: soap::Service::new(format!("{}/xmds.php?v=5", cms.address),
-                                        cms.make_agent()?),
+                                        cms.make_agent(no_verify)?),
             display_name: cms.display_name.as_ref().map_or_else(get_display_name,
                                                                 |name| name.to_owned()),
             mac_addr: retrieve_mac().unwrap_or_else(|| "00:00:00:00:00:00".into()),

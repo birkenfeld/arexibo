@@ -47,6 +47,9 @@ struct Args {
     /// Clear the local file cache and re-download any files.
     #[arg(long)]
     clear: bool,
+    /// Disable HTTPS certificate verification.
+    #[arg(long)]
+    no_verify: bool,
 }
 
 fn main() {
@@ -86,7 +89,8 @@ fn main_inner() -> anyhow::Result<()> {
     let (togui_tx, togui_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
     let (fromgui_tx, fromgui_rx) = crossbeam_channel::bounded(1);
 
-    let handler = collect::Handler::new(cms, args.clear, &args.envdir, togui_tx, fromgui_rx)
+    let handler = collect::Handler::new(cms, args.clear, &args.envdir, args.no_verify,
+                                        togui_tx, fromgui_rx)
         .context("creating backend handler")?;
     let settings = handler.player_settings();
 
