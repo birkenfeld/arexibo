@@ -35,7 +35,7 @@ impl Service {
     fn request<T: FromStr<Err = anyhow::Error> + fmt::Debug>(&mut self, name: &str, body: impl fmt::Display) -> Result<T>
     {
         log::debug!("calling XMDS {}", name);
-        self.agent.post(&self.baseuri).send_string(&format!(r#"
+        self.agent.post(&self.baseuri).send(&format!(r#"
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
                xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/"
                xmlns:tns="urn:xmds" xmlns:types="urn:xmds/encodedTypes"
@@ -48,7 +48,7 @@ impl Service {
 </soap:Body>
 </soap:Envelope>"#, name, body, name))
     .with_context(|| format!("sending {} SOAP request", name))?
-    .into_string().with_context(|| format!("decoding {} SOAP response", name))?
+    .into_body().read_to_string().with_context(|| format!("decoding {} SOAP response", name))?
     .parse().with_context(|| format!("parsing {} SOAP response", name))
     }
 "###;

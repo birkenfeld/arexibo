@@ -4,7 +4,7 @@
 //! Handling resources such as media and layout files.
 
 use std::collections::HashMap;
-use std::{fs, io::Read, path::PathBuf, sync::Arc};
+use std::{fs, path::PathBuf, sync::Arc};
 use anyhow::{ensure, Context, Result};
 use md5::{Md5, Digest};
 use serde::{Serialize, Deserialize};
@@ -190,9 +190,7 @@ impl Cache {
     }
 
     fn download_http(&mut self, path: &str) -> Result<Vec<u8>> {
-        let mut data = Vec::new();
-        self.agent.get(path).call()?.into_reader().read_to_end(&mut data)?;
-        Ok(data)
+        Ok(self.agent.get(path).call()?.into_body().read_to_vec()?)
     }
 
     fn download_xmds(&mut self, id: i64, typ: &str, size: u64, cms: &mut xmds::Cms) -> Result<Vec<u8>> {
