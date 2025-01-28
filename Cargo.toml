@@ -2,7 +2,7 @@
 name = "arexibo"
 description = "A client (player) for the Xibo signage system"
 version = "0.2.6"
-rust-version = "1.66"
+rust-version = "1.75"
 edition = "2021"
 authors = ["Georg Brandl <g.brandl@fz-juelich.de>"]
 license = "AGPL-3.0-or-later"

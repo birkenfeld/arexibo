@@ -17,7 +17,7 @@ Currently, no binary builds are provided.
 
 To build from source, you need:
 
-* The [Rust toolchain](https://www.rust-lang.org/), version >= 1.66.  Refer to
+* The [Rust toolchain](https://www.rust-lang.org/), version >= 1.75.  Refer to
   https://rustup.rs/ for the easiest way to install, if the Linux distribution
   provided package is too old.
 
