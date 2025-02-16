@@ -50,6 +50,10 @@ struct Args {
     /// Disable HTTPS certificate verification.
     #[arg(long)]
     no_verify: bool,
+    /// Allow starting and running without connection to the CMS,
+    /// showing the last cached schedule.
+    #[arg(long)]
+    allow_offline: bool,
 }
 
 fn main() {
@@ -90,7 +94,7 @@ fn main_inner() -> anyhow::Result<()> {
     let (fromgui_tx, fromgui_rx) = crossbeam_channel::bounded(1);
 
     let handler = collect::Handler::new(cms, args.clear, &args.envdir, args.no_verify,
-                                        togui_tx, fromgui_rx)
+                                        args.allow_offline, togui_tx, fromgui_rx)
         .context("creating backend handler")?;
     let settings = handler.player_settings();
 

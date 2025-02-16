@@ -3,16 +3,17 @@
 
 //! Schedule parsing and scheduling.
 
-use std::{cmp::Ordering, sync::Arc};
+use std::{cmp::Ordering, sync::Arc, fs::File, path::Path};
 use anyhow::{Context, Result};
 use time::{OffsetDateTime, PrimitiveDateTime};
 use elementtree::Element;
+use serde::{Serialize, Deserialize};
 use crate::resource::{Cache, LayoutInfo};
 use crate::util::{TIME_FMT, ElementExt};
 
 type LayoutId = i64;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Schedule {
     default: Option<LayoutId>,
     schedules: Vec<(OffsetDateTime, OffsetDateTime, LayoutId, i32)>,
@@ -73,5 +74,15 @@ impl Schedule {
             }
         }
         layouts
+    }
+
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
+        serde_json::from_reader(File::open(path.as_ref())?)
+            .context("deserializing schedule")
+    }
+
+    pub fn to_file(&self, path: impl AsRef<Path>) -> Result<()> {
+        serde_json::to_writer_pretty(File::create(path.as_ref())?, self)
+            .context("serializing schedule")
     }
 }

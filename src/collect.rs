@@ -3,7 +3,7 @@
 
 //! Main collect loop that also processes XMR requests.
 
-use std::{path::Path, sync::Arc, thread, time::Duration};
+use std::{path::{Path, PathBuf}, sync::Arc, thread, time::Duration};
 use anyhow::{bail, Context, Result};
 use crossbeam_channel::{after, never, select, tick, Receiver};
 use itertools::Itertools;
@@ -34,6 +34,7 @@ pub struct Handler {
     settings: PlayerSettings,
     xmds: xmds::Cms,
     cache: Cache,
+    envdir: PathBuf,
     xmr: Receiver<xmr::Message>,
     schedule: Schedule,
     layouts: Vec<Arc<LayoutInfo>>,
@@ -42,17 +43,43 @@ pub struct Handler {
 
 impl Handler {
     /// Create a new handler, with channels to the GUI thread.
-    pub fn new(cms: CmsSettings, clear_cache: bool, envdir: &Path, no_verify: bool,
+    pub fn new(cms: CmsSettings, clear_cache: bool, envdir: &Path,
+               no_verify: bool, allow_offline: bool,
                to_gui: glib::Sender<ToGui>, from_gui: Receiver<FromGui>) -> Result<Self> {
         let (privkey, pubkey) = load_or_create_keypair(envdir)?;
         let cache = Cache::new(&cms, envdir.join("res"), clear_cache, no_verify).context("creating cache")?;
-        let schedule = Schedule::default();
+        let setting_file = envdir.join("settings.json");
+        let sched_file = envdir.join("sched.json");
+        let mut schedule = Schedule::default();
         let layouts = Default::default();
 
         // make an initial register call, in order to get player settings
         let mut xmds = xmds::Cms::new(&cms, pubkey, no_verify)?;
         log::info!("doing initial register call to CMS");
-        let res = xmds.register_display().context("initial registration")?;
+
+        // try initial register call
+        let res = match xmds.register_display() {
+            Err(e) => {
+                if !allow_offline {
+                    bail!("CMS not reachable or call failed: {:#}", e);
+                }
+                log::warn!("CMS not reachable or call failed: {:#}", e);
+                match PlayerSettings::from_file(&setting_file) {
+                    Ok(settings) => {
+                        log::info!("using cached settings");
+
+                        if let Ok(cached_sched) = Schedule::from_file(&sched_file) {
+                            log::info!("using cached schedule, experience may be degraded");
+                            schedule = cached_sched;
+                        }
+
+                        Some(settings)
+                    }
+                    Err(_) => bail!("initial register failed and no cached settings available")
+                }
+            }
+            Ok(res) => res
+        };
 
         // if we got settings, we are registered and authorized
         if let Some(settings) = res {
@@ -60,9 +87,12 @@ impl Handler {
             let (manager, xmr) = xmr::Manager::new(&cms, &settings.xmr_network_address, privkey)?;
             thread::spawn(|| manager.run());
 
+            settings.to_file(&setting_file).context("writing player settings")?;
+
             let mut slf = Self { to_gui, from_gui, settings, cache, xmds, xmr, schedule,
-                                 layouts, current_layout: 0 };
+                                 layouts, envdir: envdir.into(), current_layout: 0 };
             slf.update_settings();
+            slf.schedule_check();  // only useful in case of cached schedule
             Ok(slf)
         } else {
             bail!("display is not authorized yet, try again after authorization in the CMS");
@@ -170,6 +200,7 @@ impl Handler {
 
         // now that we should have all media, apply the schedule
         self.schedule = schedule;
+        let _ = self.schedule.to_file(self.envdir.join("sched.json"));
         self.schedule_check();
 
         // send log messages
