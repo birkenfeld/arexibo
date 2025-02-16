@@ -47,6 +47,7 @@ impl Server {
         log::debug!("HTTP request: {}", req.url());
         Ok(match req.url() {
             // built-in files?
+            "/favicon.ico" => Response::from_data(b"").boxed(),
             "/splash.jpg" => Response::from_data(SPLASH_JPG).boxed(),
             "/0.xlf.html" => Response::from_data(SPLASH_HTML).boxed(),
 
