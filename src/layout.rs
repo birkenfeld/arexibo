@@ -76,7 +76,7 @@ impl Translator {
         writeln!(self.out, "<style type='text/css'>{}", LAYOUT_CSS)?;
 
         if let Some(file) = el.get_attr("background") {
-            writeln!(self.out, "body {{ background-image: url('{}'); }}", file)?;
+            writeln!(self.out, "body {{ background-image: url('{}'); background-size: 100vw 100vh; }}", file)?;
         }
         if let Some(color) = el.get_attr("bgcolor") {
             writeln!(self.out, "body {{ background-color: {}; }}", color)?;
