@@ -3,7 +3,7 @@
 
 //! Definitions for the player configuration.
 
-use std::{fs::File, path::Path};
+use std::{fs::File, path::Path, time::Duration};
 use anyhow::{Context, Result};
 use md5::{Md5, Digest};
 use serde::{Serialize, Deserialize};
@@ -88,6 +88,7 @@ impl CmsSettings {
             None
         };
         Ok(ureq::config::Config::builder()
+            .timeout_connect(Some(Duration::from_secs(3)))
             .tls_config(tls_config)
             .proxy(proxy)
             .build().into())
