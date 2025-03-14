@@ -68,7 +68,7 @@ impl Handler {
                     Ok(settings) => {
                         log::info!("using cached settings");
 
-                        if let Ok(cached_sched) = Schedule::from_file(&sched_file) {
+                        if let Ok(cached_sched) = Schedule::from_file(sched_file) {
                             log::info!("using cached schedule, experience may be degraded");
                             schedule = cached_sched;
                         }
