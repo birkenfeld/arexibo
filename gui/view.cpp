@@ -108,12 +108,6 @@ void Window::setSettingsImpl(QString title, int pos_x, int pos_y, int size_x, in
 
 // Callbacks from JavaScript
 
-void Window::jsStartPlay(int mid)
-{
-    QString js = QString("document.getElementById('m%1').play();").arg(mid);
-    view->page()->runJavaScript(js);
-}
-
 void Window::jsLayoutDone()
 {
     done_cb(cb_ptr);

@@ -36,7 +36,6 @@ public slots:
     void setSettingsImpl(QString, int, int, int, int, int, int);
 
     void jsConnected();
-    void jsStartPlay(int);
     void jsLayoutDone();
 };
 

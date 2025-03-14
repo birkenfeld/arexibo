@@ -140,9 +140,11 @@ impl Translator {
 
             // if only one item is present, don't need to hide the others
             if nitems > 1 {
-                writeln!(self.out, "  for (el of document.querySelectorAll('.r{}')) el.style.visibility = 'hidden';", rid)?;
+                writeln!(self.out, "  for (el of document.querySelectorAll('.r{}')) \
+                                    el.style.visibility = 'hidden';", rid)?;
             }
-            writeln!(self.out, "  document.querySelector('#m{}').style.visibility = 'visible'; {}", mid, custom_start)?;
+            writeln!(self.out, "  document.getElementById('m{}').style.\
+                                visibility = 'visible'; {}", mid, custom_start)?;
 
             // schedule the next one: either after duration, or with custom code
             let next_i = if i == sequence.len() - 1 { 0 } else { i+1 };
@@ -199,18 +201,10 @@ impl Translator {
                                     height: {}px;{}{}'></video>",
                          rid, mid, filename, if mute { "muted" } else { "" },
                          x, y, w, h, object_fit(opts), object_pos(opts))?;
-                if mute {
-                    custom_start = format!("document.querySelector('#m{}').play();", mid);
-                } else {
-                    // TODO check this with WebEngine
-                    // The engine doesn't allow non-muted media to be started by JS,
-                    // even with media-playback-requires-user-gesture set to false.
-                    // However, if the script is executed from outside it seems
-                    // to work. So we request this by posting a request back.
-                    custom_start = format!("window.arexibo.jsStartPlay({});", mid);
-                }
-                custom_transition = Some(format!("document.querySelector('#m{}').onended = (e) => {{ \
-                                                  e.target.currentTime = 0; ### }};", mid));
+                custom_start = format!("document.getElementById('m{}').play();", mid);
+                custom_transition = Some(format!(
+                    "document.getElementById('m{}').onended = (e) => {{ \
+                     e.target.currentTime = 0; ### }};", mid));
             }
             _ => {
                 log::warn!("unsupported media type: {:?}", media.get_attr("type"));
