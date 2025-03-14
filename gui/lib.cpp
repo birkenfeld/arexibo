@@ -26,9 +26,9 @@ void setup(const char *base_uri, int inspect,
     the_app = new QApplication(fake_argc, fake_argv);
 
     QWebEngineProfile::defaultProfile()->settings()->setAttribute(
-        QWebEngineSettings::PluginsEnabled, true);
-    QWebEngineProfile::defaultProfile()->settings()->setAttribute(
         QWebEngineSettings::ScreenCaptureEnabled, true);
+    QWebEngineProfile::defaultProfile()->settings()->setAttribute(
+        QWebEngineSettings::PlaybackRequiresUserGesture, false);
 
     the_wnd = new Window(base_uri, inspect, callback_ptr, done_cb, shot_cb);
     the_wnd->show();

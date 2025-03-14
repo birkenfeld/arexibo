@@ -25,9 +25,6 @@ private:
     layoutdone_callback done_cb;
     screenshot_callback shot_cb;
 
-    void jsStartPlay(int);
-    void jsLayoutDone();
-
 signals:
     void navigateTo(QString);
     void screenShot();
@@ -37,6 +34,10 @@ public slots:
     void navigateToImpl(QString);
     void screenShotImpl();
     void setSettingsImpl(QString, int, int, int, int, int, int);
+
+    void jsConnected();
+    void jsStartPlay(int);
+    void jsLayoutDone();
 };
 
 #endif

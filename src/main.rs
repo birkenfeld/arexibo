@@ -89,8 +89,8 @@ fn main_inner() -> anyhow::Result<()> {
     cms.to_file(&cmscfg).context("writing new CMS config")?;
 
     // create the backend handler and required channels
-    let (togui_tx, togui_rx) = crossbeam_channel::bounded(1);
-    let (fromgui_tx, fromgui_rx) = crossbeam_channel::bounded(1);
+    let (togui_tx, togui_rx) = crossbeam_channel::bounded(5);
+    let (fromgui_tx, fromgui_rx) = crossbeam_channel::bounded(5);
 
     let handler = collect::Handler::new(cms, args.clear, &args.envdir, args.no_verify,
                                         args.allow_offline, togui_tx, fromgui_rx)
@@ -112,6 +112,6 @@ fn main_inner() -> anyhow::Result<()> {
 
     std::thread::spawn(|| handler.run());
 
-    qt::run(settings, togui_rx, fromgui_tx);
+    qt::run(settings, args.inspect, togui_rx, fromgui_tx);
     Ok(())
 }

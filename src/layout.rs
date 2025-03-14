@@ -34,6 +34,7 @@ function region_done(rid) {
 }
 new QWebChannel(qt.webChannelTransport, function(channel) {
   window.arexibo = channel.objects.arexibo;
+  window.arexibo.jsConnected();
 });
 "#;
 
@@ -209,7 +210,7 @@ impl Translator {
                     custom_start = format!("window.arexibo.jsStartPlay({});", mid);
                 }
                 custom_transition = Some(format!("document.querySelector('#m{}').onended = (e) => {{ \
-                                                  e.target.fastSeek(0); ### }};", mid));
+                                                  e.target.currentTime = 0; ### }};", mid));
             }
             _ => {
                 log::warn!("unsupported media type: {:?}", media.get_attr("type"));

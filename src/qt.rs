@@ -20,7 +20,8 @@ struct CallbackData {
     schedule: Arc<Mutex<Schedule<Arc<LayoutInfo>>>>,
 }
 
-pub fn run(settings: PlayerSettings, togui: Receiver<ToGui>, fromgui: Sender<FromGui>) {
+pub fn run(settings: PlayerSettings, inspect: bool,
+           togui: Receiver<ToGui>, fromgui: Sender<FromGui>) {
     let base_uri = format!("http://localhost:{}/", settings.embedded_server_port);
     let fromgui_2 = fromgui.clone();
 
@@ -28,6 +29,16 @@ pub fn run(settings: PlayerSettings, togui: Receiver<ToGui>, fromgui: Sender<Fro
 
     let cb_data = CallbackData { sender: fromgui, schedule: schedule.clone() };
     let cb_data = Box::leak(Box::new(cb_data)) as *mut _ as *mut c_void;
+
+    let title = CString::new(settings.display_name.as_bytes().to_vec()).unwrap();
+    let base_uri = CString::new(base_uri).unwrap();
+    unsafe {
+        cpp::setup(base_uri.as_ptr(), inspect as _, cb_data,
+                   layoutdone_callback as *mut c_void,
+                   screenshot_callback as *mut c_void);
+        cpp::set_settings(title.as_ptr(), settings.pos_x, settings.pos_y,
+                          settings.size_x, settings.size_y, 0, 0);
+    }
 
     let mut last_settings = settings.clone();
     std::thread::spawn(move || {
@@ -67,14 +78,8 @@ pub fn run(settings: PlayerSettings, togui: Receiver<ToGui>, fromgui: Sender<Fro
         }
     });
 
+
     unsafe {
-        let title = CString::new(settings.display_name).unwrap();
-        let base_uri = CString::new(base_uri).unwrap();
-        cpp::setup(base_uri.as_ptr(), 1, cb_data,
-                   layoutdone_callback as *mut c_void,
-                   screenshot_callback as *mut c_void);
-        cpp::set_settings(title.as_ptr(), settings.pos_x, settings.pos_y,
-                          settings.size_x, settings.size_y, 0, 0);
         cpp::run();
     }
 }

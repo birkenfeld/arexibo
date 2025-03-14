@@ -73,12 +73,14 @@ void Window::setSettingsImpl(QString title, int pos_x, int pos_y, int size_x, in
     if (size_x == 0 && size_y == 0 && pos_x == 0 && pos_y == 0) {
         size_x = screen_w;
         size_y = screen_h;
+        showFullScreen();
     } else {
         if (size_x == 0) size_x = screen_w;
         if (size_y == 0) size_y = screen_h;
+        setWindowState(windowState() ^ Qt::WindowFullScreen);
+        resize(size_x, size_y);
+        move(pos_x, pos_y);
     }
-    resize(size_x, size_y);
-    move(pos_x, pos_y);
 
     // nothing specified for the layout (e.g. splash)?
     if (layout_w == 0 || layout_h == 0) {
@@ -115,4 +117,9 @@ void Window::jsStartPlay(int mid)
 void Window::jsLayoutDone()
 {
     done_cb(cb_ptr);
+}
+
+void Window::jsConnected()
+{
+    std::cout << "WebChannel is connected" << std::endl;
 }
