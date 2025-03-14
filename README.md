@@ -21,8 +21,10 @@ To build from source, you need:
   https://rustup.rs/ for the easiest way to install, if the Linux distribution
   provided package is too old.
 
-* Development headers for `dbus` (>= 1.6), `webkit2gtk` (>= 2.22), and `zeromq`
-  (>= 4.1), as well as a normal build system including `pkg-config`.
+* Qt 6 with the QtWebEngine component, development headers as well as CMake.
+
+* Development headers for `dbus` (>= 1.6), `zeromq` (>= 4.1)
+  as well as a normal build system including `pkg-config`.
 
 To build, run:
 
@@ -44,9 +46,6 @@ at runtime, except for the system libraries it is linked against.
 Builds have been tested with the available dependency library versions on Debian
 bullseye, Ubuntu focal and RHEL 8 with EPEL.  Debian/Ubuntu don't provide a new
 enough Rust compiler though.
-
-Since webkit2gtk uses gstreamer to play media, you might have to install
-additional plugins such as `gst-libav`; they are not required at build time.
 
 
 ## Usage

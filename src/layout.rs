@@ -28,10 +28,13 @@ var regions_total = 0;
 function region_done(rid) {
   regions_done[rid] = 1;
   if (Object.keys(regions_done).length == regions_total) {
-    window.webkit.messageHandlers.xibo.postMessage("layout_done");
+    window.arexibo.jsLayoutDone();
     regions_total = 0;  // no more messages
   }
 }
+new QWebChannel(qt.webChannelTransport, function(channel) {
+  window.arexibo = channel.objects.arexibo;
+});
 "#;
 
 
@@ -70,8 +73,9 @@ impl Translator {
     fn write_header(&mut self, el: &Element) -> Result<()> {
         self.size = (el.parse_attr("width")?, el.parse_attr("height")?);
 
-        writeln!(self.out, "<!doctype html>\n<html><head>")?;
+        writeln!(self.out, "<!DOCTYPE html>\n<html><head>")?;
         writeln!(self.out, "<meta charset='utf-8'>")?;
+        writeln!(self.out, "<script src='qrc:///qtwebchannel/qwebchannel.js'></script>")?;
         writeln!(self.out, "<script type='text/javascript'>{}</script>", SCRIPT)?;
         writeln!(self.out, "<style type='text/css'>{}", LAYOUT_CSS)?;
 
@@ -197,12 +201,12 @@ impl Translator {
                 if mute {
                     custom_start = format!("document.querySelector('#m{}').play();", mid);
                 } else {
-                    // WebKit doesn't allow non-muted media to be started by JS,
+                    // TODO check this with WebEngine
+                    // The engine doesn't allow non-muted media to be started by JS,
                     // even with media-playback-requires-user-gesture set to false.
                     // However, if the script is executed from outside it seems
                     // to work. So we request this by posting a request back.
-                    custom_start = format!(
-                        "window.webkit.messageHandlers.xibo.postMessage('play:{}');", mid);
+                    custom_start = format!("window.arexibo.jsStartPlay({});", mid);
                 }
                 custom_transition = Some(format!("document.querySelector('#m{}').onended = (e) => {{ \
                                                   e.target.fastSeek(0); ### }};", mid));

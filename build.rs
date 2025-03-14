@@ -54,6 +54,38 @@ impl Service {
 "###;
 
 fn main() {
+    build_qtlib();
+    convert_wsdl();
+}
+
+fn build_qtlib() {
+    let dst = cmake::build("gui");
+    println!("cargo:rerun-if-changed=gui/lib.cpp");
+    println!("cargo:rerun-if-changed=gui/lib.h");
+    println!("cargo:rerun-if-changed=gui/view.cpp");
+    println!("cargo:rerun-if-changed=gui/view.h");
+    println!("cargo:rustc-link-search=native={}/build", dst.display());
+    println!("cargo:rustc-link-lib=static=arexibogui");
+    println!("cargo:rustc-link-lib=dylib=Qt6Core");
+    println!("cargo:rustc-link-lib=dylib=Qt6Gui");
+    println!("cargo:rustc-link-lib=dylib=Qt6Widgets");
+    println!("cargo:rustc-link-lib=dylib=Qt6WebEngineCore");
+    println!("cargo:rustc-link-lib=dylib=Qt6WebEngineWidgets");
+    println!("cargo:rustc-link-lib=dylib=Qt6WebChannel");
+
+    let bindings = bindgen::Builder::default()
+        .header("gui/lib.h")
+        .clang_arg("-xc++")
+        .generate()
+        .expect("Unable to generate bindings");
+
+    let out_path = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    bindings
+        .write_to_file(out_path.join("bindings.rs"))
+        .expect("Couldn't write bindings!");
+}
+
+fn convert_wsdl() {
     println!("cargo:rerun-if-changed={}", WSDLFILE);
     let tree = Element::from_reader(File::open(WSDLFILE).unwrap()).unwrap();
 

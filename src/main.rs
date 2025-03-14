@@ -3,8 +3,6 @@
 
 //! Main entry point for the application.
 
-#[cfg(feature = "gui")]
-pub mod gui;
 pub mod config;
 pub mod collect;
 pub mod server;
@@ -15,6 +13,7 @@ pub mod xmds;
 pub mod xmr;
 pub mod logger;
 pub mod util;
+pub mod qt;
 
 use std::path::PathBuf;
 use anyhow::{ensure, Context};
@@ -90,7 +89,7 @@ fn main_inner() -> anyhow::Result<()> {
     cms.to_file(&cmscfg).context("writing new CMS config")?;
 
     // create the backend handler and required channels
-    let (togui_tx, togui_rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+    let (togui_tx, togui_rx) = crossbeam_channel::bounded(1);
     let (fromgui_tx, fromgui_rx) = crossbeam_channel::bounded(1);
 
     let handler = collect::Handler::new(cms, args.clear, &args.envdir, args.no_verify,
@@ -111,14 +110,8 @@ fn main_inner() -> anyhow::Result<()> {
         .context("creating internal HTTP server")?;
     webserver.start_pool();
 
-    #[cfg(feature = "gui")]
-    {
-        std::thread::spawn(|| handler.run());
-        gui::run(settings, args.inspect, togui_rx, fromgui_tx)
-    }
-    #[cfg(not(feature = "gui"))]
-    {
-        let _unused = (togui_rx, fromgui_tx);
-        handler.run()
-    }
+    std::thread::spawn(|| handler.run());
+
+    qt::run(settings, togui_rx, fromgui_tx);
+    Ok(())
 }

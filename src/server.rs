@@ -110,8 +110,16 @@ impl Server {
     }
 }
 
-const SPLASH_HTML: &[u8] = br#"<!doctype html>
+const SPLASH_HTML: &[u8] = br#"<!DOCTYPE html>
 <html>
+<head>
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<script>
+new QWebChannel(qt.webChannelTransport, function(channel) {
+  window.arexibo = channel.objects.arexibo;
+});
+</script>
+</head>
 <body style="margin: 0">
 <img style="display: block; width: 100%; height: 100%" src="splash.jpg">
 </body>

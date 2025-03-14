@@ -6,7 +6,7 @@
 use std::{fs, fmt, path::Path, str::FromStr, time::Duration};
 use anyhow::{Context, Result};
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
-use dbus::blocking::{Connection};
+use dbus::blocking::Connection;
 use md5::{Md5, Digest};
 use nix::{sys::statvfs, unistd::gethostname};
 use once_cell::sync::Lazy;
