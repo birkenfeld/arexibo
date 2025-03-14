@@ -72,17 +72,6 @@ fn build_qtlib() {
     println!("cargo:rustc-link-lib=dylib=Qt6WebEngineCore");
     println!("cargo:rustc-link-lib=dylib=Qt6WebEngineWidgets");
     println!("cargo:rustc-link-lib=dylib=Qt6WebChannel");
-
-    let bindings = bindgen::Builder::default()
-        .header("gui/lib.h")
-        .clang_arg("-xc++")
-        .generate()
-        .expect("Unable to generate bindings");
-
-    let out_path = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    bindings
-        .write_to_file(out_path.join("bindings.rs"))
-        .expect("Couldn't write bindings!");
 }
 
 fn convert_wsdl() {

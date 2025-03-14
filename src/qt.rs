@@ -10,10 +10,8 @@ use crate::config::PlayerSettings;
 use crate::collect::{ToGui, FromGui};
 use crate::resource::LayoutInfo;
 
-#[allow(non_camel_case_types, non_upper_case_globals, dead_code)]
-mod cpp {
-    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-}
+#[path = "qt_binding.rs"]
+mod cpp;
 
 struct CallbackData {
     sender: Sender<FromGui>,

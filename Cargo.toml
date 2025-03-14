@@ -46,7 +46,6 @@ zmq = "0.10"
 
 [build-dependencies]
 cmake = "0.1"
-bindgen = "0.69"
 elementtree = "1.2"
 
 [features]
