@@ -66,12 +66,18 @@ fn build_qtlib() {
     println!("cargo:rerun-if-changed=gui/view.h");
     println!("cargo:rustc-link-search=native={}/build", dst.display());
     println!("cargo:rustc-link-lib=static=arexibogui");
-    println!("cargo:rustc-link-lib=dylib=Qt6Core");
-    println!("cargo:rustc-link-lib=dylib=Qt6Gui");
-    println!("cargo:rustc-link-lib=dylib=Qt6Widgets");
-    println!("cargo:rustc-link-lib=dylib=Qt6WebEngineCore");
-    println!("cargo:rustc-link-lib=dylib=Qt6WebEngineWidgets");
-    println!("cargo:rustc-link-lib=dylib=Qt6WebChannel");
+
+    let linker_script = std::fs::read_to_string(
+        format!("{}/build/CMakeFiles/dummy.dir/link.txt", dst.display())).unwrap();
+    for line in linker_script.lines() {
+        if line.contains(" -lc ") {
+            let libpart = line.split(" -lc ").nth(1).unwrap();
+            let libs = shlex::split(libpart).unwrap();
+            for lib in libs {
+                println!("cargo:rustc-link-arg={}", lib);
+            }
+        }
+    }
 }
 
 fn convert_wsdl() {

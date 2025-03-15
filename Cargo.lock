@@ -93,6 +93,7 @@ dependencies = [
  "rsa",
  "serde",
  "serde_json",
+ "shlex",
  "time",
  "tiny_http",
  "ureq",
