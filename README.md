@@ -21,10 +21,12 @@ To build from source, you need:
   https://rustup.rs/ for the easiest way to install, if the Linux distribution
   provided package is too old.
 
-* Qt 6 with the QtWebEngine component, development headers as well as CMake.
+* CMake and a C++ compiler.
+
+* Qt 6 with the QtWebEngine component and its development headers.
 
 * Development headers for `dbus` (>= 1.6), `zeromq` (>= 4.1)
-  as well as a normal build system including `pkg-config`.
+  as well as `pkg-config`.
 
 To build, run:
 
