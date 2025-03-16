@@ -37,8 +37,10 @@ Window::Window(QString base_uri, int inspect, void *cb_ptr,
 
     connect(this, SIGNAL(navigateTo(QString)), this, SLOT(navigateToImpl(QString)));
     connect(this, SIGNAL(screenShot()), this, SLOT(screenShotImpl()));
-    connect(this, SIGNAL(setSettings(QString, int, int, int, int, int, int)),
-            this, SLOT(setSettingsImpl(QString, int, int, int, int, int, int)));
+    connect(this, SIGNAL(setTitle(QString)), this, SLOT(setWindowTitle(QString)));
+    connect(this, SIGNAL(setSize(int, int, int, int)),
+            this, SLOT(setSizeImpl(int, int, int, int)));
+    connect(this, SIGNAL(setScale(int, int)), this, SLOT(setScaleImpl(int, int)));
 
     view->setUrl(QUrl(base_uri + "0.xlf.html"));
 }
@@ -58,12 +60,8 @@ void Window::screenShotImpl()
     shot_cb(cb_ptr, array, array.size());
 }
 
-void Window::setSettingsImpl(QString title, int pos_x, int pos_y, int size_x, int size_y,
-                             int layout_w, int layout_h)
+void Window::setSizeImpl(int pos_x, int pos_y, int size_x, int size_y)
 {
-    if (!title.isEmpty())
-        setWindowTitle(title);
-
     // find current screen size
     QRect screenGeometry = screen()->geometry();
     int screen_w = screenGeometry.width();
@@ -81,6 +79,20 @@ void Window::setSettingsImpl(QString title, int pos_x, int pos_y, int size_x, in
         resize(size_x, size_y);
         move(pos_x, pos_y);
     }
+}
+
+void Window::setScaleImpl(int layout_w, int layout_h)
+{
+    int window_w = width();
+    int window_h = height();
+
+    // the easy case: direct match
+    if (window_w == layout_w && window_h == layout_h) {
+        view->move(0, 0);
+        view->resize(layout_w, layout_h);
+        view->setZoomFactor(1.0);
+        return;
+    }
 
     // nothing specified for the layout (e.g. splash)?
     if (layout_w == 0 || layout_h == 0) {
@@ -89,19 +101,19 @@ void Window::setSettingsImpl(QString title, int pos_x, int pos_y, int size_x, in
     }
 
     // adjust position of webview within the window, and apply the scale
-    double window_aspect = (double)size_x / (double)size_y;
+    double window_aspect = (double)window_w / (double)window_h;
     double layout_aspect = (double)layout_w / (double)layout_h;
     if (window_aspect > layout_aspect) {
-        double scale_factor = (double)size_y / (double)layout_h;
+        double scale_factor = (double)window_h / (double)layout_h;
         int webview_w = (int)((double)layout_w * scale_factor);
-        view->move((size_x - webview_w) / 2, 0);
-        view->resize(webview_w, size_y);
+        view->move((window_w - webview_w) / 2, 0);
+        view->resize(webview_w, window_h);
         view->setZoomFactor(scale_factor);
     } else {
-        double scale_factor = (double)size_x / (double)layout_w;
+        double scale_factor = (double)window_w / (double)layout_w;
         int webview_h = (int)((double)layout_h * scale_factor);
-        view->move(0, (size_y - webview_h) / 2);
-        view->resize(size_x, webview_h);
+        view->move(0, (window_h - webview_h) / 2);
+        view->resize(window_w, webview_h);
         view->setZoomFactor(scale_factor);
     }
 }

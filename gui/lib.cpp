@@ -36,25 +36,30 @@ void setup(const char *base_uri, int inspect,
 
 void run() {
     if (!the_app) return;
-
     the_app->exec();
 }
 
 void navigate(const char *url) {
     if (!the_wnd) return;
-
     emit the_wnd->navigateTo(url);
 }
 
 void screenshot() {
     if (!the_wnd) return;
-
     emit the_wnd->screenShot();
 }
 
-void set_settings(const char *title, int pos_x, int pos_y, int size_x, int size_y,
-                  int layout_w, int layout_h) {
+void set_title(const char *title) {
     if (!the_wnd) return;
+    emit the_wnd->setTitle(title);
+}
 
-    emit the_wnd->setSettings(title, pos_x, pos_y, size_x, size_y, layout_w, layout_h);
+void set_size(int pos_x, int pos_y, int size_x, int size_y) {
+    if (!the_wnd) return;
+    emit the_wnd->setSize(pos_x, pos_y, size_x, size_y);
+}
+
+void set_scale(int layout_w, int layout_h) {
+    if (!the_wnd) return;
+    emit the_wnd->setScale(layout_w, layout_h);
 }

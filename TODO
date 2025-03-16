@@ -1,4 +1,3 @@
 * missing text on jcnsopc79?
-* separate apply size and scale again
 * move webchannel to separate object to avoid property updates? more stuff on JS side?
 * explicit convert for integers? use stdint again? strongly typed callbacks?

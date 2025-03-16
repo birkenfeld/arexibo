@@ -34,38 +34,31 @@ pub fn run(settings: PlayerSettings, inspect: bool,
         cpp::setup(base_uri.as_ptr(), inspect as _, cb_data,
                    layoutdone_callback as *mut c_void,
                    screenshot_callback as *mut c_void);
-        cpp::set_settings(title.as_ptr(), settings.pos_x, settings.pos_y,
-                          settings.size_x, settings.size_y, 0, 0);
+        cpp::set_title(title.as_ptr());
+        cpp::set_size(settings.pos_x, settings.pos_y, settings.size_x, settings.size_y);
+        cpp::set_scale(0, 0);
     }
 
-    let mut last_settings = settings.clone();
     std::thread::spawn(move || {
         for msg in togui {
             match msg {
                 ToGui::Screenshot => {
                     unsafe { cpp::screenshot(); }
                 }
-                ToGui::Settings(settings) => {
-                    last_settings = settings;
+                ToGui::Settings(s) => {
                     let layout_size = schedule.lock().unwrap().current().size;
-                    let title = CString::new(last_settings.display_name).unwrap();
+                    let title = CString::new(s.display_name).unwrap();
                     unsafe {
-                        cpp::set_settings(title.as_ptr(),
-                                          last_settings.pos_x, last_settings.pos_y,
-                                          last_settings.size_x, last_settings.size_y,
-                                          layout_size.0, layout_size.1);
+                        cpp::set_title(title.as_ptr());
+                        cpp::set_size(s.pos_x, s.pos_y, s.size_x, s.size_y);
+                        cpp::set_scale(layout_size.0, layout_size.1);
                     }
                 }
                 ToGui::Layouts(new_layouts) => {
                     if let Some(info) = schedule.lock().unwrap().update(new_layouts) {
                         log::info!("new schedule, showing layout: {}", info.id);
                         unsafe {
-                            cpp::set_settings(b"\x00".as_ptr() as *const _,
-                                              last_settings.pos_x,
-                                              last_settings.pos_y,
-                                              last_settings.size_x,
-                                              last_settings.size_y,
-                                              info.size.0, info.size.1);
+                            cpp::set_scale(info.size.0, info.size.1);
                             let url = CString::new(format!("{}.xlf.html", info.id)).unwrap();
                             cpp::navigate(url.as_ptr());
                         }
@@ -86,9 +79,11 @@ extern "C" fn layoutdone_callback(ptr: *mut c_void) {
     let cb_data = unsafe { &*(ptr as *const CallbackData) };
     if let Some(info) = cb_data.schedule.lock().unwrap().next() {
         log::info!("showing next layout: {}", info.id);
-        // TODO apply_scale(info.size, &window, &container, &webview);
         let url = CString::new(format!("{}.xlf.html", info.id)).unwrap();
-        unsafe { cpp::navigate(url.as_ptr()); }
+        unsafe {
+            cpp::set_scale(info.size.0, info.size.1);
+            cpp::navigate(url.as_ptr());
+        }
         cb_data.sender.send(FromGui::Showing(info.id)).unwrap();
     } else {
         // TODO: record that the layout is done so that we

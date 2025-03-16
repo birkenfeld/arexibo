@@ -19,13 +19,16 @@ extern "C" {
     pub fn screenshot();
 }
 extern "C" {
-    pub fn set_settings(
-        title: *const ::std::os::raw::c_char,
+    pub fn set_title(title: *const ::std::os::raw::c_char);
+}
+extern "C" {
+    pub fn set_size(
         pos_x: ::std::os::raw::c_int,
         pos_y: ::std::os::raw::c_int,
         size_x: ::std::os::raw::c_int,
         size_y: ::std::os::raw::c_int,
-        layout_w: ::std::os::raw::c_int,
-        layout_h: ::std::os::raw::c_int,
     );
+}
+extern "C" {
+    pub fn set_scale(layout_w: ::std::os::raw::c_int, layout_h: ::std::os::raw::c_int);
 }

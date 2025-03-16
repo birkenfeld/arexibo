@@ -28,12 +28,15 @@ private:
 signals:
     void navigateTo(QString);
     void screenShot();
-    void setSettings(QString, int, int, int, int, int, int);
+    void setTitle(QString);
+    void setSize(int, int, int, int);
+    void setScale(int, int);
 
 public slots:
     void navigateToImpl(QString);
     void screenShotImpl();
-    void setSettingsImpl(QString, int, int, int, int, int, int);
+    void setSizeImpl(int, int, int, int);
+    void setScaleImpl(int, int);
 
     void jsConnected();
     void jsLayoutDone();

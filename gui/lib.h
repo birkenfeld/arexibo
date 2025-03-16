@@ -8,8 +8,9 @@ void setup(const char *base_uri, int inspect,
 void run();
 void navigate(const char *url);
 void screenshot();
-void set_settings(const char *title, int pos_x, int pos_y, int size_x, int size_y,
-                  int layout_w, int layout_h);
+void set_title(const char *title);
+void set_size(int pos_x, int pos_y, int size_x, int size_y);
+void set_scale(int layout_w, int layout_h);
 
 }
 
