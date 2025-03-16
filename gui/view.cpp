@@ -5,8 +5,7 @@
 
 #include "view.h"
 
-Window::Window(QString base_uri, int inspect, void *cb_ptr,
-               void *done_cb, void *shot_cb) :
+Window::Window(QString base_uri, int inspect, void *cb_ptr, void *done_cb, void *shot_cb) :
     QMainWindow(),
     base_uri(base_uri),
     cb_ptr(cb_ptr),
@@ -20,7 +19,8 @@ Window::Window(QString base_uri, int inspect, void *cb_ptr,
 
     channel = new QWebChannel(this);
     view->page()->setWebChannel(channel);
-    channel->registerObject("arexibo", this);
+    auto interface = new JSInterface(this);
+    channel->registerObject("arexibo", interface);
 
     if (inspect) {
         auto devtools_window = new QMainWindow();
@@ -120,12 +120,12 @@ void Window::setScaleImpl(int layout_w, int layout_h)
 
 // Callbacks from JavaScript
 
-void Window::jsLayoutDone()
+void JSInterface::jsLayoutDone()
 {
-    done_cb(cb_ptr);
+    wnd->done_cb(wnd->cb_ptr);
 }
 
-void Window::jsConnected()
+void JSInterface::jsConnected()
 {
     std::cout << "WebChannel is connected" << std::endl;
 }
