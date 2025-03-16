@@ -67,17 +67,22 @@ void Window::setSizeImpl(int pos_x, int pos_y, int size_x, int size_y)
     int screen_w = screenGeometry.width();
     int screen_h = screenGeometry.height();
 
+    if (size_x == 0) size_x = screen_w;
+    if (size_y == 0) size_y = screen_h;
+
     // calculate window position and size
-    if (size_x == 0 && size_y == 0 && pos_x == 0 && pos_y == 0) {
-        size_x = screen_w;
-        size_y = screen_h;
+    if (size_x == screen_w && size_y == screen_h && pos_x == 0 && pos_y == 0) {
+        resize(size_x, size_y);
+        move(0, 0);
         showFullScreen();
+        std::cout << "INFO : [arexibo::qt] size: full screen" << std::endl;
     } else {
-        if (size_x == 0) size_x = screen_w;
-        if (size_y == 0) size_y = screen_h;
-        setWindowState(windowState() ^ Qt::WindowFullScreen);
+        setWindowState(windowState() & ~Qt::WindowFullScreen);
         resize(size_x, size_y);
         move(pos_x, pos_y);
+        std::cout << "INFO : [arexibo::qt] size: windowed ("
+                  << size_x << "x" << size_y << ")+"
+                  << pos_x << "+" << pos_y << std::endl;
     }
 }
 
@@ -91,6 +96,8 @@ void Window::setScaleImpl(int layout_w, int layout_h)
         view->move(0, 0);
         view->resize(layout_w, layout_h);
         view->setZoomFactor(1.0);
+        std::cout << "INFO : [arexibo::qt] scale: window = layout ("
+                  << layout_w << "x" << layout_h << ")" << std::endl;
         return;
     }
 
@@ -103,19 +110,26 @@ void Window::setScaleImpl(int layout_w, int layout_h)
     // adjust position of webview within the window, and apply the scale
     double window_aspect = (double)window_w / (double)window_h;
     double layout_aspect = (double)layout_w / (double)layout_h;
+    double scale_factor;
     if (window_aspect > layout_aspect) {
-        double scale_factor = (double)window_h / (double)layout_h;
+        scale_factor = (double)window_h / (double)layout_h;
         int webview_w = (int)((double)layout_w * scale_factor);
         view->move((window_w - webview_w) / 2, 0);
         view->resize(webview_w, window_h);
         view->setZoomFactor(scale_factor);
     } else {
-        double scale_factor = (double)window_w / (double)layout_w;
+        scale_factor = (double)window_w / (double)layout_w;
         int webview_h = (int)((double)layout_h * scale_factor);
         view->move(0, (window_h - webview_h) / 2);
         view->resize(window_w, webview_h);
         view->setZoomFactor(scale_factor);
     }
+    std::cout << "INFO : [arexibo::qt] scale: window ("
+              << window_w << "x" << window_h << "), layout ("
+              << layout_w << "x" << layout_h << "), result: ("
+              << view->width() << "x" << view->height() << ")+"
+              << view->x() << "+" << view->y()
+              << " with zoom " << scale_factor << std::endl;
 }
 
 // Callbacks from JavaScript
@@ -127,5 +141,5 @@ void JSInterface::jsLayoutDone()
 
 void JSInterface::jsConnected()
 {
-    std::cout << "WebChannel is connected" << std::endl;
+    std::cout << "INFO : [arexibo::qt] WebChannel is connected" << std::endl;
 }
