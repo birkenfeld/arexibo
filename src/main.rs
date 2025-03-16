@@ -43,6 +43,9 @@ struct Args {
     /// Show web inspector to debug layout problems.
     #[arg(long)]
     inspect: bool,
+    /// Enable debug logging of WebEngine messags.
+    #[arg(long)]
+    debug: bool,
     /// Clear the local file cache and re-download any files.
     #[arg(long)]
     clear: bool,
@@ -112,6 +115,6 @@ fn main_inner() -> anyhow::Result<()> {
 
     std::thread::spawn(|| handler.run());
 
-    gui::run(settings, args.inspect, togui_rx, fromgui_tx);
+    gui::run(settings, args.inspect, args.debug, togui_rx, fromgui_tx);
     Ok(())
 }

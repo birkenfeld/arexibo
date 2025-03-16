@@ -16,9 +16,12 @@ Window *the_wnd = nullptr;
 int fake_argc = 1;
 char *fake_argv[] = {(char *)"arexibo", nullptr};
 
-void setup(const char *base_uri, int inspect,
+void setup(const char *base_uri, int inspect, int debug,
            void *callback_ptr, void *done_cb, void *shot_cb) {
     if (the_wnd) return;
+
+    if (debug)
+        qputenv("QTWEBENGINE_CHROMIUM_FLAGS", "--enable-logging --log-level=0");
 
     qInitResources_res();
 

@@ -3,7 +3,7 @@
 
 extern "C" {
 
-void setup(const char *base_uri, int inspect,
+void setup(const char *base_uri, int inspect, int debug,
            void *cb_ptr, void *done_cb, void *shot_cb);
 void run();
 void navigate(const char *file);

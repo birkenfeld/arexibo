@@ -4,6 +4,7 @@ extern "C" {
     pub fn setup(
         base_uri: *const ::std::os::raw::c_char,
         inspect: ::std::os::raw::c_int,
+        debug: ::std::os::raw::c_int,
         cb_ptr: *mut ::std::os::raw::c_void,
         done_cb: *mut ::std::os::raw::c_void,
         shot_cb: *mut ::std::os::raw::c_void,
