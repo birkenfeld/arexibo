@@ -25,17 +25,18 @@ pub fn run(settings: PlayerSettings, inspect: bool,
 
     let schedule = Arc::new(Mutex::new(Schedule::<Arc<LayoutInfo>>::default()));
 
-    let cb_data = CallbackData { sender: fromgui, schedule: schedule.clone() };
+    let cb_data = CallbackData { sender: fromgui_2, schedule: schedule.clone() };
     let cb_data = Box::leak(Box::new(cb_data)) as *mut _ as *mut c_void;
 
-    let title = CString::new(settings.display_name.as_bytes().to_vec()).unwrap();
+    let title = CString::new(settings.display_name).unwrap();
     let base_uri = CString::new(base_uri).unwrap();
     unsafe {
         cpp::setup(base_uri.as_ptr(), inspect as _, cb_data,
                    layoutdone_callback as *mut c_void,
                    screenshot_callback as *mut c_void);
         cpp::set_title(title.as_ptr());
-        cpp::set_size(settings.pos_x, settings.pos_y, settings.size_x, settings.size_y);
+        cpp::set_size(settings.pos_x as _, settings.pos_y as _,
+                      settings.size_x as _, settings.size_y as _);
         cpp::set_scale(0, 0);
     }
 
@@ -50,19 +51,19 @@ pub fn run(settings: PlayerSettings, inspect: bool,
                     let title = CString::new(s.display_name).unwrap();
                     unsafe {
                         cpp::set_title(title.as_ptr());
-                        cpp::set_size(s.pos_x, s.pos_y, s.size_x, s.size_y);
-                        cpp::set_scale(layout_size.0, layout_size.1);
+                        cpp::set_size(s.pos_x as _, s.pos_y as _, s.size_x as _, s.size_y as _);
+                        cpp::set_scale(layout_size.0 as _, layout_size.1 as _);
                     }
                 }
                 ToGui::Layouts(new_layouts) => {
                     if let Some(info) = schedule.lock().unwrap().update(new_layouts) {
                         log::info!("new schedule, showing layout: {}", info.id);
+                        let file = CString::new(format!("{}.xlf.html", info.id)).unwrap();
                         unsafe {
-                            cpp::set_scale(info.size.0, info.size.1);
-                            let url = CString::new(format!("{}.xlf.html", info.id)).unwrap();
-                            cpp::navigate(url.as_ptr());
+                            cpp::set_scale(info.size.0 as _, info.size.1 as _);
+                            cpp::navigate(file.as_ptr());
                         }
-                        fromgui_2.send(FromGui::Showing(info.id)).unwrap();
+                        fromgui.send(FromGui::Showing(info.id)).unwrap();
                     }
                 }
             }
@@ -79,10 +80,10 @@ extern "C" fn layoutdone_callback(ptr: *mut c_void) {
     let cb_data = unsafe { &*(ptr as *const CallbackData) };
     if let Some(info) = cb_data.schedule.lock().unwrap().next() {
         log::info!("showing next layout: {}", info.id);
-        let url = CString::new(format!("{}.xlf.html", info.id)).unwrap();
+        let file = CString::new(format!("{}.xlf.html", info.id)).unwrap();
         unsafe {
-            cpp::set_scale(info.size.0, info.size.1);
-            cpp::navigate(url.as_ptr());
+            cpp::set_scale(info.size.0 as _, info.size.1 as _);
+            cpp::navigate(file.as_ptr());
         }
         cb_data.sender.send(FromGui::Showing(info.id)).unwrap();
     } else {
@@ -95,13 +96,6 @@ extern "C" fn screenshot_callback(ptr: *mut c_void, data: *mut c_char, len: usiz
     let cb_data = unsafe { &*(ptr as *const CallbackData) };
     let data = unsafe { std::slice::from_raw_parts(data as *const u8, len) };
     cb_data.sender.send(FromGui::Screenshot(data.to_vec())).unwrap();
-}
-
-pub fn navigate(url: &str) {
-    unsafe {
-        let cstr = CString::new(url).unwrap();
-        cpp::navigate(cstr.as_ptr());
-    }
 }
 
 /// Keeps track of scheduled layouts and the currently shown one.

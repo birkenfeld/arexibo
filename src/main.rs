@@ -13,7 +13,7 @@ pub mod xmds;
 pub mod xmr;
 pub mod logger;
 pub mod util;
-pub mod qt;
+pub mod gui;
 
 use std::path::PathBuf;
 use anyhow::{ensure, Context};
@@ -112,6 +112,6 @@ fn main_inner() -> anyhow::Result<()> {
 
     std::thread::spawn(|| handler.run());
 
-    qt::run(settings, args.inspect, togui_rx, fromgui_tx);
+    gui::run(settings, args.inspect, togui_rx, fromgui_tx);
     Ok(())
 }

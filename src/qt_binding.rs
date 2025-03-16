@@ -13,7 +13,7 @@ extern "C" {
     pub fn run();
 }
 extern "C" {
-    pub fn navigate(url: *const ::std::os::raw::c_char);
+    pub fn navigate(file: *const ::std::os::raw::c_char);
 }
 extern "C" {
     pub fn screenshot();

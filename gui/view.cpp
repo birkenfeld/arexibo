@@ -45,8 +45,8 @@ Window::Window(QString base_uri, int inspect, void *cb_ptr,
     view->setUrl(QUrl(base_uri + "0.xlf.html"));
 }
 
-void Window::navigateToImpl(QString url) {
-    view->setUrl(QUrl(base_uri + url));
+void Window::navigateToImpl(QString file) {
+    view->setUrl(QUrl(base_uri + file));
 }
 
 void Window::screenShotImpl()

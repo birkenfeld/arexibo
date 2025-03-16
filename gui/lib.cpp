@@ -39,9 +39,9 @@ void run() {
     the_app->exec();
 }
 
-void navigate(const char *url) {
+void navigate(const char *file) {
     if (!the_wnd) return;
-    emit the_wnd->navigateTo(url);
+    emit the_wnd->navigateTo(file);
 }
 
 void screenshot() {
