@@ -21,7 +21,8 @@ void setup(const char *base_uri, int inspect, int debug,
     if (the_wnd) return;
 
     if (debug)
-        qputenv("QTWEBENGINE_CHROMIUM_FLAGS", "--enable-logging --log-level=0");
+        qputenv("QTWEBENGINE_CHROMIUM_FLAGS",
+                "--single-process --enable-logging --log-level=0 --v=1");
 
     qInitResources_res();
 
