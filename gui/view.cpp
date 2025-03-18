@@ -14,7 +14,7 @@ Window::Window(QString base_uri, int inspect, void *cb_ptr, void *done_cb, void 
 {
     setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
     setWindowIcon(QIcon(":/assets/logo.png"));
-    setStyleSheet("background-color: white;");
+    setStyleSheet("background-color: black;");
 
     view = new QWebEngineView(this);
 
