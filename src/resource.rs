@@ -4,7 +4,7 @@
 //! Handling resources such as media and layout files.
 
 use std::collections::HashMap;
-use std::{fs, path::PathBuf, sync::Arc};
+use std::{fs, io, io::Write, path::PathBuf, sync::Arc};
 use anyhow::{ensure, Context, Result};
 use md5::{Md5, Digest};
 use serde::{Serialize, Deserialize};
@@ -153,20 +153,19 @@ impl Cache {
                 self.save()?;
             }
             ReqFile::File { id, typ, http, size, md5, path, name } => {
-                let data = if http {
-                    match self.download_http(&path) {
-                        Ok(data) => data,
+                let filename = self.dir.join(&name);
+                if http {
+                    match self.download_http(&path, &filename, &md5) {
+                        Ok(_) => {},
                         Err(e) => {
                             log::warn!("failing download of {} over http, retrying \
                                         xmds: {:#}", name, e);
-                            self.download_xmds(id, typ, size, cms)?
+                            self.download_xmds(id, typ, size, cms, &filename, &md5)?
                         }
                     }
                 } else {
-                    self.download_xmds(id, typ, size, cms)?
-                };
-                ensure!(Md5::digest(&data).as_slice() == md5, "md5 mismatch");
-                fs::write(self.dir.join(&name), data)?;
+                    self.download_xmds(id, typ, size, cms, &filename, &md5)?
+                }
 
                 if typ == "layout" {
                     // translate the layout into HTML
@@ -189,21 +188,30 @@ impl Cache {
         Ok(())
     }
 
-    fn download_http(&mut self, path: &str) -> Result<Vec<u8>> {
-        Ok(self.agent.get(path).call()?.into_body().read_to_vec()?)
+    fn download_http(&mut self, path: &str, filename: &PathBuf,
+                     md5: &[u8]) -> Result<()> {
+        let body = self.agent.get(path).call()?.into_body();
+        let file = io::BufWriter::new(fs::File::create(filename)?);
+        let mut wrapper = HashingWriter::new(file);
+        io::copy(&mut body.into_reader(), &mut wrapper)?;
+        ensure!(wrapper.hash() == md5, "md5 mismatch");
+        Ok(())
     }
 
-    fn download_xmds(&mut self, id: i64, typ: &str, size: u64, cms: &mut xmds::Cms) -> Result<Vec<u8>> {
+    fn download_xmds(&mut self, id: i64, typ: &str, size: u64, cms: &mut xmds::Cms,
+                     filename: &PathBuf, md5: &[u8]) -> Result<()> {
         const CHUNK_SIZE: u64 = 1024 * 1024;
         let mut got_size = 0;
-        let mut result = Vec::new();
+        let file = io::BufWriter::new(fs::File::create(filename)?);
+        let mut wrapper = HashingWriter::new(file);
         while got_size < size {
             let next_size = (size - got_size).min(CHUNK_SIZE);
             let chunk = cms.get_file_data(id, typ, got_size, next_size)?;
             got_size += chunk.len() as u64;
-            result.extend(chunk);
+            wrapper.write_all(&chunk)?;
         }
-        Ok(result)
+        ensure!(wrapper.hash() == md5, "md5 mismatch");
+        Ok(())
     }
 
     pub fn get_layout(&self, id: i64) -> Option<Arc<LayoutInfo>> {
@@ -231,5 +239,33 @@ impl Cache {
         let fp = fs::File::create(self.dir.join("content.json")).context("writing cache content")?;
         serde_json::to_writer_pretty(fp, &self.content).context("serializing cache content")?;
         Ok(())
+    }
+}
+
+
+pub struct HashingWriter<W> {
+    writer: W,
+    hasher: Md5,
+}
+
+impl<W> HashingWriter<W> {
+    pub fn new(writer: W) -> Self {
+        Self { writer, hasher: md5::Md5::new() }
+    }
+
+    pub fn hash(self) -> Vec<u8> {
+        self.hasher.finalize().as_slice().to_vec()
+    }
+}
+
+impl<W> Write for HashingWriter<W> where W: Write {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let len = self.writer.write(buf)?;
+        self.hasher.update(buf);
+        Ok(len)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.writer.flush()
     }
 }
