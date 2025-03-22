@@ -5,9 +5,9 @@
 </p>
 
 Arexibo is an unofficial alternate Digital Signage Player for [Xibo](https://xibo.org.uk),
-implemented in Rust with the GTK GUI components, for Linux platforms.
+implemented mostly in Rust but making use of Qt GUI components, for Linux platforms.
 
-It is currently quite incomplete.  Don't expect any particular feature to work
+It is currently still incomplete.  Don't expect more complex features to work
 unless tested.
 
 
@@ -45,9 +45,10 @@ $ cargo install --path . --root /usr
 The will install the binary to `/usr/bin/arexibo`.  It requires no other files
 at runtime, except for the system libraries it is linked against.
 
-Builds have been tested with the available dependency library versions on Debian
-bullseye, Ubuntu focal and RHEL 8 with EPEL.  Debian/Ubuntu don't provide a new
-enough Rust compiler though.
+Builds have been tested with the available dependency library versions on Fedora
+41 and RHEL 9 with EPEL.  Note that in order to play some media like mp4 videos,
+you will require a `ffmpeg` package that includes some codecs that RHEL/Fedora
+don't include in their packages, e.g. from rpmfusion.org.
 
 
 ## Usage
