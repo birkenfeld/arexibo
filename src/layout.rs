@@ -39,7 +39,7 @@ new QWebChannel(qt.webChannelTransport, function(channel) {
 "#;
 
 
-type MediaInfo = (i32, i32, String, Option<String>);
+type MediaInfo = (i32, i32, String, Option<String>, Option<String>);
 
 pub struct Translator {
     tree: Option<Element>,
@@ -95,7 +95,7 @@ impl Translator {
     fn write_footer(&mut self) -> Result<()> {
         // start all regions' first item
         writeln!(self.out, "<script type='text/javascript'>\n\
-                            document.addEventListener('DOMContentLoaded', function() {{")?;
+                            window.addEventListener('load', function() {{")?;
         for rid in &self.regions {
             writeln!(self.out, "  r{}_s0(true);", rid)?;
         }
@@ -130,7 +130,8 @@ impl Translator {
         writeln!(self.out, "<script type='text/javascript'>")?;
         writeln!(self.out, "regions_total += 1;")?;
         // for each media, create a function to display it and schedule the next one
-        for (i, (mid, duration, custom_start, custom_transition)) in sequence.iter().enumerate() {
+        for (i, (mid, duration, custom_start,
+                 custom_transition, custom_duration)) in sequence.iter().enumerate() {
             writeln!(self.out, "function r{}_s{}(first) {{", rid, i)?;
 
             // when the first media is called for the second time, the region is "done"
@@ -155,6 +156,9 @@ impl Translator {
             if *duration != 0 {
                 writeln!(self.out, "  window.setTimeout(() => {{ {} }}, {});",
                          next_fn, 1000 * duration)?;
+            } else if let Some(expr) = custom_duration {
+                writeln!(self.out, "  window.setTimeout(() => {{ {} }}, {});",
+                         next_fn, expr)?;
             }
             writeln!(self.out, "}}")?;
         }
@@ -169,7 +173,7 @@ impl Translator {
         let opts = media.find("options").context("no options")?;
         let len = media.def_attr("duration", "").parse::<i32>().unwrap_or(10);
         let mut custom_start = "".into();
-        let mut custom_transition = None;
+        let mut custom_duration = None;
         writeln!(self.out, "  <!-- media {} -->", mid)?;
         match (media.get_attr("render"), media.get_attr("type")) {
             (Some("html"), _) |
@@ -202,16 +206,15 @@ impl Translator {
                          rid, mid, filename, if mute { "muted" } else { "" },
                          x, y, w, h, object_fit(opts), object_pos(opts))?;
                 custom_start = format!("document.getElementById('m{}').play();", mid);
-                custom_transition = Some(format!(
-                    "document.getElementById('m{}').onended = (e) => {{ \
-                     e.target.currentTime = 0; ### }};", mid));
+                custom_duration = Some(format!(
+                    "document.getElementById('m{}').duration * 1000", mid));
             }
             _ => {
                 log::warn!("unsupported media type: {:?}", media.get_attr("type"));
                 return Ok(None);
             }
         }
-        Ok(Some((mid, len, custom_start, custom_transition)))
+        Ok(Some((mid, len, custom_start, None, custom_duration)))
     }
 }
 
