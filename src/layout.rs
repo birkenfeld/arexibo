@@ -14,6 +14,7 @@ use crate::util::{ElementExt, percent_decode};
 // - reloading resources in iframes
 // - overriding duration from resources
 
+pub const TRANSLATOR_VERSION: u32 = 3;
 
 const LAYOUT_CSS: &str = r#"
 body { margin: 0; background-repeat: no-repeat; overflow: hidden; }
@@ -74,7 +75,8 @@ impl Translator {
     fn write_header(&mut self, el: &Element) -> Result<()> {
         self.size = (el.parse_attr("width")?, el.parse_attr("height")?);
 
-        writeln!(self.out, "<!DOCTYPE html>\n<html><head>")?;
+        writeln!(self.out, "<!DOCTYPE html>\n<!-- VERSION={} -->", TRANSLATOR_VERSION)?;
+        writeln!(self.out, "<html><head>")?;
         writeln!(self.out, "<meta charset='utf-8'>")?;
         writeln!(self.out, "<script src='qrc:///qtwebchannel/qwebchannel.js'></script>")?;
         writeln!(self.out, "<script type='text/javascript'>{}</script>", SCRIPT)?;

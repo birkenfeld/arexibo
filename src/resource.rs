@@ -9,7 +9,7 @@ use anyhow::{ensure, Context, Result};
 use md5::{Md5, Digest};
 use serde::{Serialize, Deserialize};
 use ureq::Agent;
-use crate::{util, layout, xmds};
+use crate::{util, layout, layout::TRANSLATOR_VERSION, xmds};
 use crate::config::CmsSettings;
 
 
@@ -50,6 +50,7 @@ impl ReqFile {
     }
 }
 
+fn default_version() -> u32 { 0 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct LayoutInfo {
@@ -57,6 +58,8 @@ pub struct LayoutInfo {
     #[serde(deserialize_with = "util::de_hex", serialize_with = "util::ser_hex")]
     pub md5: Vec<u8>,
     pub size: (i32, i32),
+    #[serde(default = "default_version")]
+    pub translated_version: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -111,6 +114,12 @@ impl Cache {
             // ensure all mentioned files are present, remove missing entries
             content = saved;
             content.retain(|fname, _| dir.join(fname).is_file());
+
+            // remove any layout descriptions if translated version is outdated
+            content.retain(|_, res| match res {
+                Resource::Layout(layout) => layout.translated_version == TRANSLATOR_VERSION,
+                _ => true
+            });
         }
 
         Ok(Self { dir, agent: cms.make_agent(no_verify)?, content })
@@ -175,7 +184,7 @@ impl Cache {
                     )?;
                     let size = xl.translate()?;
                     self.content.insert(name, Resource::Layout(Arc::new(
-                        LayoutInfo { id, md5, size }
+                        LayoutInfo { id, md5, size, translated_version: TRANSLATOR_VERSION }
                     )));
                 } else {
                     self.content.insert(name, Resource::Media(Arc::new(
