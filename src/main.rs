@@ -98,7 +98,7 @@ fn main_inner() -> anyhow::Result<()> {
     let handler = collect::Handler::new(cms, args.clear, &args.envdir, args.no_verify,
                                         args.allow_offline, togui_tx, fromgui_rx)
         .context("creating backend handler")?;
-    let settings = handler.player_settings();
+    let mut settings = handler.player_settings();
 
     // apply setting to inhibit screensaver
     if settings.prevent_sleep {
@@ -108,9 +108,9 @@ fn main_inner() -> anyhow::Result<()> {
     }
 
     // create the interval webserver on the requested port
-    let webserver = server::Server::new(args.envdir.join("res"),
-                                        settings.embedded_server_port)
+    let webserver = server::Server::new(args.envdir.join("res"), 0)
         .context("creating internal HTTP server")?;
+    settings.embedded_server_port = webserver.port();
     webserver.start_pool();
 
     std::thread::spawn(|| handler.run());

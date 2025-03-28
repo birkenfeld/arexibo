@@ -22,6 +22,10 @@ impl Server {
         Ok(Self { dir, server })
     }
 
+    pub fn port(&self) -> u16 {
+        self.server.server_addr().to_ip().expect("IP address").port()
+    }
+
     pub fn start_pool(self) {
         let server = Arc::new(self.server);
         for _ in 0..4 {
