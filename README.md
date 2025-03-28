@@ -46,9 +46,13 @@ The will install the binary to `/usr/bin/arexibo`.  It requires no other files
 at runtime, except for the system libraries it is linked against.
 
 Builds have been tested with the available dependency library versions on Fedora
-41 and RHEL 9 with EPEL.  Note that in order to play some media like mp4 videos,
-you will require a `ffmpeg` package that includes some codecs that RHEL/Fedora
-don't include in their packages, e.g. from rpmfusion.org.
+41, RHEL 9 with EPEL and Ubuntu 24.04.  Note that in order to play some media
+like mp4 videos, you will require a `ffmpeg` package that includes some codecs
+that RHEL/Fedora don't include in their packages, e.g. from rpmfusion.org.
+
+For RHEL derived distributions, install `cmake gcc-c++ cargo dbus-devel
+zeromq-devel qt6-qtwebengine-devel`.  For Debian derived, install `cmake g++
+cargo libdbus-1-dev libzmq3-dev qt6-webengine-dev`.
 
 
 ## Usage
