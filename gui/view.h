@@ -7,7 +7,7 @@
 #include <iostream>
 #include <cstdint>
 
-typedef void (*layoutdone_callback)(void *);
+typedef void (*layout_callback)(void *, ssize_t which);
 typedef void (*screenshot_callback)(void *, const char *data, ssize_t len);
 
 class Window : public QMainWindow
@@ -24,7 +24,7 @@ private:
     QString base_uri;
 
     void *cb_ptr;
-    layoutdone_callback done_cb;
+    layout_callback layout_cb;
     screenshot_callback shot_cb;
 
 signals:
@@ -33,12 +33,14 @@ signals:
     void setTitle(QString);
     void setSize(int, int, int, int);
     void setScale(int, int);
+    void runJavascript(QString);
 
 public slots:
     void navigateToImpl(QString);
     void screenShotImpl();
     void setSizeImpl(int, int, int, int);
     void setScaleImpl(int, int);
+    void runJavascriptImpl(QString);
 };
 
 class JSInterface : public QObject
@@ -54,6 +56,8 @@ private:
 public slots:
     void jsConnected();
     void jsLayoutDone();
+    void jsLayoutPrev();
+    void jsLayoutJump(int which);
 };
 
 #endif

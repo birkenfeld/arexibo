@@ -14,7 +14,7 @@ use crate::util::{ElementExt, percent_decode};
 // - reloading resources in iframes
 // - overriding duration from resources
 
-pub const TRANSLATOR_VERSION: u32 = 4;
+pub const TRANSLATOR_VERSION: u32 = 5;
 
 const LAYOUT_CSS: &str = r#"
 body { margin: 0; background-repeat: no-repeat; overflow: hidden; }
@@ -24,19 +24,61 @@ p { margin-top: 0; }
 "#;
 
 const SCRIPT: &str = r#"
-var regions_done = {};
-var regions_total = 0;
-function region_done(rid) {
-  regions_done[rid] = 1;
-  if (Object.keys(regions_done).length == regions_total) {
-    window.arexibo.jsLayoutDone();
-    regions_total = 0;  // no more messages
-  }
-}
 new QWebChannel(qt.webChannelTransport, function(channel) {
-  window.arexibo = channel.objects.arexibo;
-  window.arexibo.jsConnected();
+  window.arexiboGui = channel.objects.arexibo;
+  window.arexiboGui.jsConnected();
 });
+
+window.arexibo = {
+  done: false,
+  regions_total: 0,
+  triggers: {},
+  regions: {},
+
+  region_switch: function(rid, next, first) {
+    let {cur, total, timeout, transitions} = this.regions[rid];
+    if (next == -1)
+      next = (cur + 1) % total;
+    else if (next == -2)
+      next = (cur + total - 1) % total;
+    this.regions[rid].cur = next;
+    window.clearTimeout(timeout);
+    transitions[next](first);
+  },
+
+  region_done: function(rid) {
+    if (this.done) return;
+
+    this.regions[rid].done = true;
+    // check if all regions are done
+    for (let region of Object.values(this.regions)) {
+      if (!region.done) return;
+    }
+    window.arexiboGui.jsLayoutDone();
+    this.done = true;
+  },
+
+  trigger: function(code) {
+    if (this.triggers[code] !== undefined) {
+      let {action, target, targetid, layout} = this.triggers[code];
+      if (action == 'navLayout') {
+        window.arexiboGui.jsLayoutJump(layout);
+      } else if (action == 'previous' || action == 'next') {
+        if (target == 'layout') {
+          if (action == 'next')
+            window.arexiboGui.jsLayoutDone();
+          else
+            window.arexiboGui.jsLayoutPrev();
+        } else {
+          if (action == 'next')
+            this.region_switch(targetid, -1);
+          else
+            this.region_switch(targetid, -2);
+        }
+      }
+    }
+  },
+};
 "#;
 
 
@@ -68,6 +110,29 @@ impl Translator {
                 log::error!("layout: could not translate region: {:#}", e);
             }
         }
+        writeln!(self.out, "<script type='text/javascript'>")?;
+        for el in tree.find_all("action") {
+            let typ = el.req_attr("triggerType")?;
+            let action = el.req_attr("actionType")?;
+            let target = el.req_attr("target")?;
+            let targetid = el.parse_attr::<i64>("targetId")?;
+            let code = el.def_attr("triggerCode", "<not set>");
+            let layout = el.def_attr("layoutCode", "<not set>");
+            if typ == "webhook" {
+                writeln!(self.out, "  window.arexibo.triggers['{code}'] = {{")?;
+                writeln!(self.out, "    action: '{action}',")?;
+                writeln!(self.out, "    target: '{target}',")?;
+                writeln!(self.out, "    targetid: {targetid},")?;
+                writeln!(self.out, "    layout: '{layout}'")?;
+                writeln!(self.out, "  }};")?;
+            } else if typ == "touch" {
+                // TODO
+                log::warn!("unsupported action type: {typ}");
+            } else {
+                log::warn!("unsupported action type: {typ}");
+            }
+        }
+        writeln!(self.out, "</script>")?;
         self.write_footer()?;
         Ok(self.size)
     }
@@ -99,7 +164,7 @@ impl Translator {
         writeln!(self.out, "<script type='text/javascript'>\n\
                             window.addEventListener('load', function() {{")?;
         for rid in &self.regions {
-            writeln!(self.out, "  r{rid}_s0(true);")?;
+            writeln!(self.out, "  arexibo.region_switch({rid}, 0, true);")?;
         }
         writeln!(self.out, "}});\n</script>")?;
         writeln!(self.out, "</body></html>")?;
@@ -130,41 +195,49 @@ impl Translator {
         }
 
         writeln!(self.out, "<script type='text/javascript'>")?;
-        writeln!(self.out, "regions_total += 1;")?;
+        writeln!(self.out, "arexibo.regions[{rid}] = {{")?;
+        writeln!(self.out, "  cur: 0,")?;
+        writeln!(self.out, "  total: {nitems},")?;
+        writeln!(self.out, "  timeout: null,")?;
+        writeln!(self.out, "  done: false,")?;
+        writeln!(self.out, "  transitions: [")?;
         // for each media, create a function to display it and schedule the next one
         for (i, (mid, duration, custom_start,
                  custom_transition, custom_duration)) in sequence.iter().enumerate() {
-            writeln!(self.out, "function r{rid}_s{i}(first) {{")?;
+            writeln!(self.out, "    function(first) {{")?;
 
             // when the first media is called for the second time, the region is "done"
             if i == 0 {
-                writeln!(self.out, "  if (!first) {{ region_done('r{rid}'); }}")?;
+                writeln!(self.out, "      if (!first) {{ arexibo.region_done({rid}); }}")?;
             }
 
             // if only one item is present, don't need to hide the others
             if nitems > 1 {
-                writeln!(self.out, "  for (el of document.querySelectorAll('.r{rid}')) \
+                writeln!(self.out, "      for (let el of document.querySelectorAll('.r{rid}')) \
                                     el.style.visibility = 'hidden';")?;
             }
-            writeln!(self.out, "  document.getElementById('m{mid}').style.\
+            writeln!(self.out, "      document.getElementById('m{mid}').style.\
                                 visibility = 'visible'; {custom_start}")?;
 
             // schedule the next one: either after duration, or with custom code
             let next_i = if i == sequence.len() - 1 { 0 } else { i+1 };
-            let next_fn = format!("r{}_s{}();", rid, next_i);
+            let next_fn = format!("arexibo.region_switch({rid}, {next_i});");
             if let Some(tmpl) = custom_transition {
                 writeln!(self.out, "  {}", tmpl.replace("###", &next_fn))?;
             }
             if *duration != 0 {
-                writeln!(self.out, "  window.setTimeout(() => {{ {} }}, {});",
+                writeln!(self.out, "      arexibo.regions[{rid}].timeout = \
+                                    window.setTimeout(() => {{ {} }}, {});",
                          next_fn, 1000 * duration)?;
             } else if let Some(expr) = custom_duration {
-                writeln!(self.out, "  window.setTimeout(() => {{ {} }}, {});",
+                writeln!(self.out, "      arexibo.regions[{rid}].timeout = \
+                                          window.setTimeout(() => {{ {} }}, {});",
                          next_fn, expr)?;
             }
-            writeln!(self.out, "}}")?;
+            writeln!(self.out, "    }},")?;
         }
-        writeln!(self.out, "</script>")?;
+        writeln!(self.out, "  ],")?;
+        writeln!(self.out, "}};\n</script>")?;
         self.regions.push(rid);
         Ok(())
     }

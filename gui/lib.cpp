@@ -17,7 +17,7 @@ int fake_argc = 1;
 char *fake_argv[] = {(char *)"arexibo", nullptr};
 
 void setup(const char *base_uri, int inspect, int debug,
-           void *callback_ptr, void *done_cb, void *shot_cb) {
+           void *callback_ptr, void *layout_cb, void *shot_cb) {
     if (the_wnd) return;
 
     if (debug)
@@ -33,7 +33,7 @@ void setup(const char *base_uri, int inspect, int debug,
     settings->setAttribute(QWebEngineSettings::ScreenCaptureEnabled, true);
     settings->setAttribute(QWebEngineSettings::PlaybackRequiresUserGesture, false);
 
-    the_wnd = new Window(base_uri, inspect, callback_ptr, done_cb, shot_cb);
+    the_wnd = new Window(base_uri, inspect, callback_ptr, layout_cb, shot_cb);
     the_wnd->show();
 }
 
@@ -65,4 +65,9 @@ void set_size(int pos_x, int pos_y, int size_x, int size_y) {
 void set_scale(int layout_w, int layout_h) {
     if (!the_wnd) return;
     emit the_wnd->setScale(layout_w, layout_h);
+}
+
+void run_js(const char *js) {
+    if (!the_wnd) return;
+    emit the_wnd->runJavascript(js);
 }

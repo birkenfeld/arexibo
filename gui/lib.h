@@ -4,13 +4,14 @@
 extern "C" {
 
 void setup(const char *base_uri, int inspect, int debug,
-           void *cb_ptr, void *done_cb, void *shot_cb);
+           void *cb_ptr, void *layout_cb, void *shot_cb);
 void run();
 void navigate(const char *file);
 void screenshot();
 void set_title(const char *title);
 void set_size(int pos_x, int pos_y, int size_x, int size_y);
 void set_scale(int layout_w, int layout_h);
+void run_js(const char *js);
 
 }
 

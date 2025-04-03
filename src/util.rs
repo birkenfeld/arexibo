@@ -37,6 +37,7 @@ impl FromStr for Base64Field {
 
 /// Helpers for parsing XML
 pub trait ElementExt {
+    fn req_attr<'a>(&'a self, attr: &'a str) -> Result<&'a str>;
     fn def_attr<'a>(&'a self, attr: &'a str, def: &'a str) -> &'a str;
     fn parse_attr<T: FromStr>(&self, attr: &str) -> Result<T>
         where T::Err: std::error::Error + Sync + Send + 'static;
@@ -45,6 +46,10 @@ pub trait ElementExt {
 }
 
 impl ElementExt for elementtree::Element {
+    fn req_attr<'a>(&'a self, attr: &'a str) -> Result<&'a str> {
+        Ok(self.get_attr(attr).with_context(|| format!("missing {}", attr))?)
+    }
+
     fn def_attr<'a>(&'a self, attr: &'a str, def: &'a str) -> &'a str {
         self.get_attr(attr).unwrap_or(def)
     }

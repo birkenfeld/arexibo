@@ -5,11 +5,11 @@
 
 #include "view.h"
 
-Window::Window(QString base_uri, int inspect, void *cb_ptr, void *done_cb, void *shot_cb) :
+Window::Window(QString base_uri, int inspect, void *cb_ptr, void *layout_cb, void *shot_cb) :
     QMainWindow(),
     base_uri(base_uri),
     cb_ptr(cb_ptr),
-    done_cb((layoutdone_callback)done_cb),
+    layout_cb((layout_callback)layout_cb),
     shot_cb((screenshot_callback)shot_cb)
 {
     setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
@@ -42,6 +42,8 @@ Window::Window(QString base_uri, int inspect, void *cb_ptr, void *done_cb, void 
     connect(this, SIGNAL(setSize(int, int, int, int)),
             this, SLOT(setSizeImpl(int, int, int, int)));
     connect(this, SIGNAL(setScale(int, int)), this, SLOT(setScaleImpl(int, int)));
+    connect(this, SIGNAL(runJavascript(QString)),
+            this, SLOT(runJavascriptImpl(QString)));
 
     view->setUrl(QUrl(base_uri + "0.xlf.html"));
 }
@@ -133,14 +135,30 @@ void Window::setScaleImpl(int layout_w, int layout_h)
               << " with zoom " << scale_factor << std::endl;
 }
 
-// Callbacks from JavaScript
-
-void JSInterface::jsLayoutDone()
+void Window::runJavascriptImpl(QString js)
 {
-    wnd->done_cb(wnd->cb_ptr);
+    std::cout << "INFO : [arexibo::qt] Run JavaScript: " << js.toStdString() << std::endl;
+    view->page()->runJavaScript(js);
 }
+
+// Callbacks from JavaScript
 
 void JSInterface::jsConnected()
 {
     std::cout << "INFO : [arexibo::qt] WebChannel is connected" << std::endl;
+}
+
+void JSInterface::jsLayoutDone()
+{
+    wnd->layout_cb(wnd->cb_ptr, 0);
+}
+
+void JSInterface::jsLayoutPrev()
+{
+    wnd->layout_cb(wnd->cb_ptr, -1);
+}
+
+void JSInterface::jsLayoutJump(int which)
+{
+    wnd->layout_cb(wnd->cb_ptr, which);
 }

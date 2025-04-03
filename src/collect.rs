@@ -19,6 +19,7 @@ pub enum ToGui {
     Settings(PlayerSettings),
     Layouts(Vec<Arc<LayoutInfo>>),
     Screenshot,
+    WebHook(String),
 }
 
 /// Messages received from the GUI thread
@@ -143,6 +144,9 @@ impl Handler {
                             log::error!("durign cache purge: {:#}", e);
                         }
                         collect = after(Duration::from_secs(0));  // force re-download
+                    }
+                    Ok(xmr::Message::WebHook(code)) => {
+                        self.to_gui.send(ToGui::WebHook(code)).unwrap();
                     }
                     Err(_) => ()
                 },

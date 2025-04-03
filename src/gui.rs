@@ -32,7 +32,7 @@ pub fn run(settings: PlayerSettings, inspect: bool, debug: bool,
     let base_uri = CString::new(base_uri).unwrap();
     unsafe {
         cpp::setup(base_uri.as_ptr(), inspect as _, debug as _, cb_data,
-                   layoutdone_callback as *mut c_void,
+                   layout_callback as *mut c_void,
                    screenshot_callback as *mut c_void);
         cpp::set_title(title.as_ptr());
         cpp::set_size(settings.pos_x as _, settings.pos_y as _,
@@ -66,6 +66,13 @@ pub fn run(settings: PlayerSettings, inspect: bool, debug: bool,
                         fromgui.send(FromGui::Showing(info.id)).unwrap();
                     }
                 }
+                ToGui::WebHook(code) => {
+                    let code = CString::new(format!(
+                        "window.arexibo.trigger(\"{code}\");")).unwrap();
+                    unsafe {
+                        cpp::run_js(code.as_ptr());
+                    }
+                }
             }
         }
     });
@@ -76,25 +83,34 @@ pub fn run(settings: PlayerSettings, inspect: bool, debug: bool,
     }
 }
 
-extern "C" fn layoutdone_callback(ptr: *mut c_void) {
+extern "C" fn layout_callback(ptr: *mut c_void, which: isize) {
     let cb_data = unsafe { &*(ptr as *const CallbackData) };
-    if let Some(info) = cb_data.schedule.lock().unwrap().next() {
-        log::info!("showing next layout: {}", info.id);
-        let file = CString::new(format!("{}.xlf.html", info.id)).unwrap();
-        unsafe {
-            cpp::set_scale(info.size.0 as _, info.size.1 as _);
-            cpp::navigate(file.as_ptr());
-        }
-        cb_data.sender.send(FromGui::Showing(info.id)).unwrap();
+
+    let new_id = if which > 0 {
+        which as _
     } else {
-        // TODO: record that the layout is done so that we
-        // can switch to the next one on update.
+        // TODO: which == -1
+        if let Some(info) = cb_data.schedule.lock().unwrap().next() {
+            info.id
+        } else {
+            // TODO: record that the layout is done so that we
+            // can switch to the next one on update.
+            return;
+        }
+    };
+
+    log::info!("showing next layout: {}", new_id);
+    let file = CString::new(format!("{}.xlf.html", new_id)).unwrap();
+    unsafe {
+        // cpp::set_scale(info.size.0 as _, info.size.1 as _); // TODO TODO
+        cpp::navigate(file.as_ptr());
     }
+    cb_data.sender.send(FromGui::Showing(new_id)).unwrap();
 }
 
-extern "C" fn screenshot_callback(ptr: *mut c_void, data: *mut c_char, len: usize) {
+extern "C" fn screenshot_callback(ptr: *mut c_void, data: *mut c_char, len: isize) {
     let cb_data = unsafe { &*(ptr as *const CallbackData) };
-    let data = unsafe { std::slice::from_raw_parts(data as *const u8, len) };
+    let data = unsafe { std::slice::from_raw_parts(data as *const u8, len as usize) };
     cb_data.sender.send(FromGui::Screenshot(data.to_vec())).unwrap();
 }
 

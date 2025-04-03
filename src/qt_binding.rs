@@ -6,7 +6,7 @@ extern "C" {
         inspect: ::std::os::raw::c_int,
         debug: ::std::os::raw::c_int,
         cb_ptr: *mut ::std::os::raw::c_void,
-        done_cb: *mut ::std::os::raw::c_void,
+        layout_cb: *mut ::std::os::raw::c_void,
         shot_cb: *mut ::std::os::raw::c_void,
     );
 }
@@ -32,4 +32,7 @@ extern "C" {
 }
 extern "C" {
     pub fn set_scale(layout_w: ::std::os::raw::c_int, layout_h: ::std::os::raw::c_int);
+}
+extern "C" {
+    pub fn run_js(js: *const ::std::os::raw::c_char);
 }
