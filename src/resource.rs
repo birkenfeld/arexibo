@@ -50,6 +50,7 @@ impl ReqFile {
     }
 }
 
+fn none<T>() -> Option<T> { None }
 fn default_version() -> u32 { 0 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -77,6 +78,8 @@ pub struct ResourceInfo {
     pub regionid: i64,
     pub updated: i64,
     pub duration: Option<f64>,
+    #[serde(default = "none")]
+    pub numitems: Option<i64>,
 }
 
 /// A resource in the local cache.
@@ -151,13 +154,20 @@ impl Cache {
                                             &mediaid.to_string())?;
                 let fname = format!("{}.html", id);
 
-                // TODO:
-                // - get DURATION
-                // - re-download after given updateInterval
-                let duration = None;
+                // TODO: re-download after given updateInterval
+                let duration = data.find("<!-- DURATION=").and_then(|index| {
+                    data[index + 14..].find(" -->").and_then(|endindex| {
+                        data[index + 14..][..endindex].parse::<f64>().ok()
+                    })
+                });
+                let numitems = data.find("<!-- NUMITEMS=").and_then(|index| {
+                    data[index + 14..].find(" -->").and_then(|endindex| {
+                        data[index + 14..][..endindex].parse::<i64>().ok()
+                    })
+                });
                 fs::write(self.dir.join(&fname), data)?;
                 self.content.insert(fname, Resource::Resource(Arc::new(
-                    ResourceInfo { id, layoutid, regionid, updated, duration }
+                    ResourceInfo { id, layoutid, regionid, updated, duration, numitems }
                 )));
                 self.save()?;
             }
