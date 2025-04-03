@@ -13,6 +13,8 @@ use crate::{util, layout, layout::TRANSLATOR_VERSION, xmds};
 use crate::config::CmsSettings;
 
 
+pub type LayoutId = i64;
+
 /// An entry in the "required files" set.
 #[derive(Debug)]
 pub enum ReqFile {
@@ -27,7 +29,7 @@ pub enum ReqFile {
     },
     Resource {
         id: i64,
-        layoutid: i64,
+        layoutid: LayoutId,
         regionid: i64,
         mediaid: i64,
         updated: i64,
@@ -74,11 +76,11 @@ pub struct MediaInfo {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ResourceInfo {
     pub id: i64,
-    pub layoutid: i64,
+    pub layoutid: LayoutId,
     pub regionid: i64,
     pub updated: i64,
     pub duration: Option<f64>,
-    #[serde(default = "none")]
+    #[serde(default)]
     pub numitems: Option<i64>,
 }
 
@@ -234,7 +236,7 @@ impl Cache {
         Ok(())
     }
 
-    pub fn get_layout(&self, id: i64) -> Option<Arc<LayoutInfo>> {
+    pub fn get_layout(&self, id: LayoutId) -> Option<Arc<LayoutInfo>> {
         self.content.get(&format!("{}.xlf", id)).and_then(|entry| match entry {
             Resource::Layout(layout) => Some(layout.clone()),
             _ => None

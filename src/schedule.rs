@@ -8,9 +8,8 @@ use anyhow::{Context, Result};
 use time::{OffsetDateTime, PrimitiveDateTime};
 use elementtree::Element;
 use serde::{Serialize, Deserialize};
+use crate::resource::LayoutId;
 use crate::util::{TIME_FMT, ElementExt};
-
-type LayoutId = i64;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Schedule {
@@ -46,7 +45,7 @@ impl Schedule {
         })
     }
 
-    pub fn layouts_now(&self) -> Vec<i64> {
+    pub fn layouts_now(&self) -> Vec<LayoutId> {
         let now = OffsetDateTime::now_local().unwrap();
         let mut cur_prio = 0;
         let mut layouts = Vec::new();

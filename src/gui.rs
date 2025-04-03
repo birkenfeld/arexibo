@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use crossbeam_channel::{Sender, Receiver};
 use crate::config::PlayerSettings;
 use crate::collect::{ToGui, FromGui};
+use crate::resource::LayoutId;
 
 #[path = "qt_binding.rs"]
 #[allow(non_camel_case_types)]
@@ -15,7 +16,7 @@ mod cpp;
 
 struct CallbackData {
     sender: Sender<FromGui>,
-    schedule: Arc<Mutex<Schedule<i64>>>,
+    schedule: Arc<Mutex<Schedule<LayoutId>>>,
 }
 
 pub fn run(settings: PlayerSettings, inspect: bool, debug: bool,
@@ -23,7 +24,7 @@ pub fn run(settings: PlayerSettings, inspect: bool, debug: bool,
     let base_uri = format!("http://localhost:{}/", settings.embedded_server_port);
     let fromgui_2 = fromgui.clone();
 
-    let schedule = Arc::new(Mutex::new(Schedule::<i64>::default()));
+    let schedule = Arc::new(Mutex::new(Schedule::<LayoutId>::default()));
 
     let cb_data = CallbackData { sender: fromgui_2, schedule: schedule.clone() };
     let cb_data = Box::leak(Box::new(cb_data)) as *mut _ as *mut c_void;

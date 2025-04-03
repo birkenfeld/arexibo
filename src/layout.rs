@@ -7,6 +7,7 @@ use std::{fs, io::{Write, BufWriter}};
 use std::path::Path;
 use anyhow::{Context, Result};
 use elementtree::Element;
+use crate::resource::LayoutId;
 use crate::util::{ElementExt, percent_decode};
 
 // TODO:
@@ -63,9 +64,9 @@ window.arexibo = {
 
   trigger: function(code) {
     if (this.triggers[code] !== undefined) {
-      let {action, target, targetid, layout} = this.triggers[code];
+      let {action, target, targetid, layoutid} = this.triggers[code];
       if (action == 'navLayout') {
-        window.arexiboGui.jsLayoutJump(layout);
+        window.arexiboGui.jsLayoutJump(layoutid);
       } else if (action == 'previous' || action == 'next') {
         if (target == 'layout') {
           if (action == 'next')
