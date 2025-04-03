@@ -152,7 +152,7 @@ impl Cache {
                 let fname = format!("{}.html", id);
 
                 // TODO:
-                // - process (replace [[ViewPort]], get DURATION)
+                // - get DURATION
                 // - re-download after given updateInterval
                 let duration = None;
                 fs::write(self.dir.join(&fname), data)?;

@@ -3,11 +3,13 @@
 
 //! Internal webserver to point the webview to.
 
-use std::{sync::Arc, fs, io::Read, io::Seek, thread};
+use std::{sync::Arc, fs, io::Read, io::Seek, thread, collections::HashMap};
 use std::path::{Path, PathBuf};
 use anyhow::{anyhow, bail, ensure, Result};
 use itertools::Itertools;
 use tiny_http::{Request, Response, ResponseBox, Header, StatusCode};
+
+use crate::util::percent_decode;
 
 
 pub struct Server {
@@ -56,13 +58,41 @@ impl Server {
             "/0.xlf.html" => Response::from_data(SPLASH_HTML).boxed(),
 
             // any other static files
-            path => {
-                let path = dir.join(&path[1..]);
+            url => {
+                let parts = url.split('?').collect_vec();
+                let path = dir.join(&parts[0][1..]);
+                let ext = path.extension().and_then(|e| e.to_str());
+
+                let query_params = parts.get(1).map(|par| par.split('&').map(|p| {
+                    let mut kv = p.split('=');
+                    let k = percent_decode(kv.next().unwrap_or(""));
+                    let v = percent_decode(kv.next().unwrap_or(""));
+                    (k, v)
+                }).collect::<HashMap<_, _>>()).unwrap_or_default();
+
                 if !path.is_file() {
                     log::warn!("processing HTTP req {}: 404 not found", req.url());
                     return Ok(Response::empty(404).boxed());
                 }
                 let mut fp = fs::File::open(&path)?;
+
+                // implement replacing [[ViewPortWidth]] by requested width
+                if ext == Some("html") && query_params.contains_key("w") {
+                    let mut data = Vec::new();
+                    fp.read_to_end(&mut data)?;
+                    if let Some(i) = (0..data.len())
+                        .find(|&i| data[i..].starts_with(b"[[ViewPortWidth]]")) {
+                        let mut new_data = data[..i].to_vec();
+                        new_data.extend_from_slice(query_params["w"].as_bytes());
+                        new_data.extend_from_slice(&data[i + 17..]);
+                        data = new_data;
+                    }
+
+                    return Ok(Response::from_data(data)
+                        .with_header(Header::from_bytes(b"Content-Type",
+                                                        b"text/html").unwrap())
+                        .boxed());
+                }
 
                 // implement HTTP Range query for gstreamer
                 for h in req.headers() {
@@ -77,10 +107,8 @@ impl Server {
                         return Ok(Response::new(
                             StatusCode(206),
                             vec![
-                                Header::from_bytes(&b"Content-Range"[..],
-                                                   range.as_bytes()).unwrap(),
-                                Header::from_bytes(&b"Content-Type"[..],
-                                                   &b"video/mp4"[..]).unwrap(),
+                                Header::from_bytes(b"Content-Range", range).unwrap(),
+                                Header::from_bytes(b"Content-Type", b"video/mp4").unwrap(),
                             ],
                             stream,
                             Some(size as usize),
@@ -90,7 +118,7 @@ impl Server {
                 }
 
                 // guess the MIME type based on filename
-                let ctype = match path.extension().and_then(|e| e.to_str()) {
+                let ctype = match ext {
                     Some("html") => "text/html",
                     Some("js") => "text/javascript",
                     Some("ttf" | "otf") => "application/font-sfnt",
@@ -107,7 +135,7 @@ impl Server {
                 Response::from_file(fp)
                     // for gstreamer, need a response with Content-Length => no chunked
                     .with_chunked_threshold(usize::MAX)
-                    .with_header(Header::from_bytes(&b"Content-Type"[..], ctype.as_bytes()).unwrap())
+                    .with_header(Header::from_bytes(b"Content-Type", ctype).unwrap())
                     .boxed()
             }
         })

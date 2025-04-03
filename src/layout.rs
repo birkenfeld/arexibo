@@ -14,7 +14,7 @@ use crate::util::{ElementExt, percent_decode};
 // - reloading resources in iframes
 // - overriding duration from resources
 
-pub const TRANSLATOR_VERSION: u32 = 3;
+pub const TRANSLATOR_VERSION: u32 = 4;
 
 const LAYOUT_CSS: &str = r#"
 body { margin: 0; background-repeat: no-repeat; overflow: hidden; }
@@ -99,7 +99,7 @@ impl Translator {
         writeln!(self.out, "<script type='text/javascript'>\n\
                             window.addEventListener('load', function() {{")?;
         for rid in &self.regions {
-            writeln!(self.out, "  r{}_s0(true);", rid)?;
+            writeln!(self.out, "  r{rid}_s0(true);")?;
         }
         writeln!(self.out, "}});\n</script>")?;
         writeln!(self.out, "</body></html>")?;
@@ -134,20 +134,20 @@ impl Translator {
         // for each media, create a function to display it and schedule the next one
         for (i, (mid, duration, custom_start,
                  custom_transition, custom_duration)) in sequence.iter().enumerate() {
-            writeln!(self.out, "function r{}_s{}(first) {{", rid, i)?;
+            writeln!(self.out, "function r{rid}_s{i}(first) {{")?;
 
             // when the first media is called for the second time, the region is "done"
             if i == 0 {
-                writeln!(self.out, "  if (!first) {{ region_done('r{}'); }}", rid)?;
+                writeln!(self.out, "  if (!first) {{ region_done('r{rid}'); }}")?;
             }
 
             // if only one item is present, don't need to hide the others
             if nitems > 1 {
-                writeln!(self.out, "  for (el of document.querySelectorAll('.r{}')) \
-                                    el.style.visibility = 'hidden';", rid)?;
+                writeln!(self.out, "  for (el of document.querySelectorAll('.r{rid}')) \
+                                    el.style.visibility = 'hidden';")?;
             }
-            writeln!(self.out, "  document.getElementById('m{}').style.\
-                                visibility = 'visible'; {}", mid, custom_start)?;
+            writeln!(self.out, "  document.getElementById('m{mid}').style.\
+                                visibility = 'visible'; {custom_start}")?;
 
             // schedule the next one: either after duration, or with custom code
             let next_i = if i == sequence.len() - 1 { 0 } else { i+1 };
@@ -176,37 +176,36 @@ impl Translator {
         let len = media.def_attr("duration", "").parse::<i32>().unwrap_or(10);
         let mut custom_start = "".into();
         let mut custom_duration = None;
-        writeln!(self.out, "  <!-- media {} -->", mid)?;
+        writeln!(self.out, "  <!-- media {mid} -->")?;
         match (media.get_attr("render"), media.get_attr("type")) {
             (Some("html"), _) |
             (_, Some("text" | "ticker")) => {
-                writeln!(self.out, "<iframe class='media r{}' id='m{}' src='{}.html' \
-                                    style='left: {}px; top: {}px; width: {}px; \
-                                    height: {}px;'></iframe>",
-                         rid, mid, mid, x, y, w, h)?;
+                writeln!(self.out, "<iframe class='media r{rid}' id='m{mid}' \
+                                    src='{mid}.html?w={w}&h={h}' \
+                                    style='left: {x}px; top: {y}px; width: {w}px; \
+                                    height: {h}px;'></iframe>")?;
             }
             (_, Some("webpage")) => {
                 let url = percent_decode(opts.find("uri").context("no web uri")?.text());
-                writeln!(self.out, "<iframe class='media r{}' id='m{}' src='{}' \
-                                    style='left: {}px; top: {}px; width: {}px; \
-                                    height: {}px;'></iframe>",
-                         rid, mid, url, x, y, w, h)?;
+                writeln!(self.out, "<iframe class='media r{rid}' id='m{mid}' src='{url}' \
+                                    style='left: {x}px; top: {y}px; width: {w}px; \
+                                    height: {h}px;'></iframe>")?;
             }
             (_, Some("image")) => {
                 let filename = opts.find("uri").context("no image uri")?.text();
-                writeln!(self.out, "<img class='media r{}' id='m{}' src='{}' \
-                                    style='left: {}px; top: {}px; width: {}px; \
-                                    height: {}px;{}{}'>",
-                         rid, mid, filename, x, y, w, h, object_fit(opts), object_pos(opts))?;
+                writeln!(self.out, "<img class='media r{rid}' id='m{mid}' src='{filename}' \
+                                    style='left: {x}px; top: {y}px; width: {w}px; \
+                                    height: {h}px;{}{}'>",
+                         object_fit(opts), object_pos(opts))?;
             }
             (_, Some("video")) => {
                 let filename = opts.find("uri").context("no video uri")?.text();
                 let mute = opts.find("mute").map_or(false, |el| el.text() == "1");
-                writeln!(self.out, "<video class='media r{}' id='m{}' src='{}' {} \
-                                    style='left: {}px; top: {}px; width: {}px; \
-                                    height: {}px;{}{}'></video>",
-                         rid, mid, filename, if mute { "muted" } else { "" },
-                         x, y, w, h, object_fit(opts), object_pos(opts))?;
+                writeln!(self.out, "<video class='media r{rid}' id='m{mid}' src='{filename}' {} \
+                                    style='left: {x}px; top: {y}px; width: {w}px; \
+                                    height: {h}px;{}{}'></video>",
+                         if mute { "muted" } else { "" },
+                         object_fit(opts), object_pos(opts))?;
                 custom_start = format!("document.getElementById('m{}').play();", mid);
                 custom_duration = Some(format!(
                     "document.getElementById('m{}').duration * 1000", mid));
