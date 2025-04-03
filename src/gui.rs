@@ -100,7 +100,6 @@ extern "C" fn callback(ptr: *mut c_void, typ: isize, arg1: isize, arg2: isize, _
             } else {
                 // TODO: record that the layout is done so that we
                 // can switch to the next one on update.
-                return;
             }
         }
         cpp::CB_LAYOUT_PREV => {

@@ -147,7 +147,7 @@ impl<'a> Translator<'a> {
             writeln!(self.out, "  }};")?;
         } else if typ == "touch" {
             // TODO
-            log::warn!("unsupported action type: {typ}");
+            log::warn!("touch actions not yet supported");
         } else {
             log::warn!("unsupported action type: {typ}");
         }

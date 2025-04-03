@@ -47,7 +47,7 @@ pub trait ElementExt {
 
 impl ElementExt for elementtree::Element {
     fn req_attr<'a>(&'a self, attr: &'a str) -> Result<&'a str> {
-        Ok(self.get_attr(attr).with_context(|| format!("missing {}", attr))?)
+        self.get_attr(attr).with_context(|| format!("missing {attr}"))
     }
 
     fn def_attr<'a>(&'a self, attr: &'a str, def: &'a str) -> &'a str {
