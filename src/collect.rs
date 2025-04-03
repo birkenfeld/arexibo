@@ -3,7 +3,7 @@
 
 //! Main collect loop that also processes XMR requests.
 
-use std::{path::{Path, PathBuf}, sync::Arc, thread, time::Duration};
+use std::{path::{Path, PathBuf}, thread, time::Duration};
 use anyhow::{bail, Context, Result};
 use crossbeam_channel::{after, never, select, tick, Receiver, Sender};
 use itertools::Itertools;
@@ -11,13 +11,13 @@ use rand::rngs::OsRng;
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::{DecodePrivateKey, EncodePrivateKey, EncodePublicKey}};
 use crate::config::{CmsSettings, PlayerSettings};
 use crate::{logger, util, xmds, xmr};
-use crate::resource::{Cache, LayoutInfo};
+use crate::resource::Cache;
 use crate::schedule::Schedule;
 
 /// Messages sent to the GUI thread
 pub enum ToGui {
     Settings(PlayerSettings),
-    Layouts(Vec<Arc<LayoutInfo>>),
+    Layouts(Vec<i64>),
     Screenshot,
     WebHook(String),
 }
@@ -38,7 +38,7 @@ pub struct Handler {
     envdir: PathBuf,
     xmr: Receiver<xmr::Message>,
     schedule: Schedule,
-    layouts: Vec<Arc<LayoutInfo>>,
+    layouts: Vec<i64>,
     current_layout: i64,
 }
 
@@ -234,10 +234,10 @@ impl Handler {
 
     /// Check if need to update the layouts to show.
     fn schedule_check(&mut self) {
-        let new_layouts = self.schedule.layouts_now(&self.cache);
+        let new_layouts = self.schedule.layouts_now();
         if new_layouts != self.layouts {
             log::info!("new layouts in schedule: {}",
-                       new_layouts.iter().map(|l| l.id).format(", ").to_string());
+                       new_layouts.iter().format(", ").to_string());
             self.to_gui.send(ToGui::Layouts(new_layouts.clone())).unwrap();
             self.layouts = new_layouts;
         }

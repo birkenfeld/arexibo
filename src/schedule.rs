@@ -3,12 +3,11 @@
 
 //! Schedule parsing and scheduling.
 
-use std::{cmp::Ordering, sync::Arc, fs::File, path::Path};
+use std::{cmp::Ordering, fs::File, path::Path};
 use anyhow::{Context, Result};
 use time::{OffsetDateTime, PrimitiveDateTime};
 use elementtree::Element;
 use serde::{Serialize, Deserialize};
-use crate::resource::{Cache, LayoutInfo};
 use crate::util::{TIME_FMT, ElementExt};
 
 type LayoutId = i64;
@@ -47,7 +46,7 @@ impl Schedule {
         })
     }
 
-    pub fn layouts_now(&self, cache: &Cache) -> Vec<Arc<LayoutInfo>> {
+    pub fn layouts_now(&self) -> Vec<i64> {
         let now = OffsetDateTime::now_local().unwrap();
         let mut cur_prio = 0;
         let mut layouts = Vec::new();
@@ -61,16 +60,12 @@ impl Schedule {
                     }
                     _ => ()
                 }
-                if let Some(info) = cache.get_layout(lid) {
-                    layouts.push(info);
-                }
+                layouts.push(lid);
             }
         }
         if layouts.is_empty() {
             if let Some(def) = self.default {
-                if let Some(info) = cache.get_layout(def) {
-                    layouts.push(info);
-                }
+                layouts.push(def);
             }
         }
         layouts

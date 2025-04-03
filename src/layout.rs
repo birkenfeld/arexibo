@@ -14,7 +14,7 @@ use crate::util::{ElementExt, percent_decode};
 // - reloading resources in iframes
 // - overriding duration from resources
 
-pub const TRANSLATOR_VERSION: u32 = 5;
+pub const TRANSLATOR_VERSION: u32 = 6;
 
 const LAYOUT_CSS: &str = r#"
 body { margin: 0; background-repeat: no-repeat; overflow: hidden; }
@@ -26,10 +26,13 @@ p { margin-top: 0; }
 const SCRIPT: &str = r#"
 new QWebChannel(qt.webChannelTransport, function(channel) {
   window.arexiboGui = channel.objects.arexibo;
-  window.arexiboGui.jsConnected();
+  window.arexiboGui.jsLayoutInit(arexibo.id, arexibo.width, arexibo.height);
 });
 
 window.arexibo = {
+  id: 0,
+  width: 0,
+  height: 0,
   done: false,
   regions_total: 0,
   triggers: {},
@@ -85,6 +88,7 @@ window.arexibo = {
 type MediaInfo = (i32, i32, String, Option<String>, Option<String>);
 
 pub struct Translator {
+    id: i64,
     tree: Option<Element>,
     out: BufWriter<fs::File>,
     regions: Vec<i32>,
@@ -92,14 +96,14 @@ pub struct Translator {
 }
 
 impl Translator {
-    pub fn new(xlf: &Path, html: &Path) -> Result<Self> {
+    pub fn new(id: i64, xlf: &Path, html: &Path) -> Result<Self> {
         let file = fs::File::open(xlf)?;
         let tree = Some(Element::from_reader(file).context("parsing XLF")?);
 
         let out = fs::File::create(html)?;
         let out = BufWriter::new(out);
 
-        Ok(Self { tree, out, regions: Vec::new(), size: (0, 0) })
+        Ok(Self { id, tree, out, regions: Vec::new(), size: (0, 0) })
     }
 
     pub fn translate(mut self) -> Result<(i32, i32)> {
@@ -144,7 +148,11 @@ impl Translator {
         writeln!(self.out, "<html><head>")?;
         writeln!(self.out, "<meta charset='utf-8'>")?;
         writeln!(self.out, "<script src='qrc:///qtwebchannel/qwebchannel.js'></script>")?;
-        writeln!(self.out, "<script type='text/javascript'>{}</script>", SCRIPT)?;
+        writeln!(self.out, "<script type='text/javascript'>{}\
+                            window.arexibo.id = {};\n\
+                            window.arexibo.width = {};\n\
+                            window.arexibo.height = {};\n\
+                            </script>", SCRIPT, self.id, self.size.0, self.size.1)?;
         writeln!(self.out, "<style type='text/css'>{}", LAYOUT_CSS)?;
 
         if let Some(file) = el.get_attr("background") {

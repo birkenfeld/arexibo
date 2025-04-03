@@ -5,12 +5,13 @@
 
 #include "view.h"
 
-Window::Window(QString base_uri, int inspect, void *cb_ptr, void *layout_cb, void *shot_cb) :
+Window::Window(QString base_uri, int inspect, callback cb, void *cb_ptr) :
     QMainWindow(),
     base_uri(base_uri),
+    cb(cb),
     cb_ptr(cb_ptr),
-    layout_cb((layout_callback)layout_cb),
-    shot_cb((screenshot_callback)shot_cb)
+    layout_width(1920),
+    layout_height(1080)
 {
     setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
     setWindowIcon(QIcon(":/assets/logo.png"));
@@ -41,7 +42,6 @@ Window::Window(QString base_uri, int inspect, void *cb_ptr, void *layout_cb, voi
     connect(this, SIGNAL(setTitle(QString)), this, SLOT(setWindowTitle(QString)));
     connect(this, SIGNAL(setSize(int, int, int, int)),
             this, SLOT(setSizeImpl(int, int, int, int)));
-    connect(this, SIGNAL(setScale(int, int)), this, SLOT(setScaleImpl(int, int)));
     connect(this, SIGNAL(runJavascript(QString)),
             this, SLOT(runJavascriptImpl(QString)));
 
@@ -60,7 +60,7 @@ void Window::screenShotImpl()
     QBuffer buffer(&array);
     buffer.open(QIODevice::WriteOnly);
     img.save(&buffer, "PNG");
-    shot_cb(cb_ptr, array, array.size());
+    cb(cb_ptr, CB_SCREENSHOT, (intptr_t)(const char *)array, array.size(), 0);
 }
 
 void Window::setSizeImpl(int pos_x, int pos_y, int size_x, int size_y)
@@ -87,12 +87,20 @@ void Window::setSizeImpl(int pos_x, int pos_y, int size_x, int size_y)
                   << size_x << "x" << size_y << ")+"
                   << pos_x << "+" << pos_y << std::endl;
     }
+
+    adjustScale(layout_width, layout_height);
 }
 
-void Window::setScaleImpl(int layout_w, int layout_h)
+void Window::adjustScale(int layout_w, int layout_h)
 {
+    layout_width = layout_w;
+    layout_height = layout_h;
+
     int window_w = width();
     int window_h = height();
+
+    if (window_w == 0 || window_h == 0 || layout_h == 0 || layout_w == 0)
+        return;
 
     // the easy case: direct match
     if (window_w == layout_w && window_h == layout_h) {
@@ -102,12 +110,6 @@ void Window::setScaleImpl(int layout_w, int layout_h)
         std::cout << "INFO : [arexibo::qt] scale: window = layout ("
                   << layout_w << "x" << layout_h << ")" << std::endl;
         return;
-    }
-
-    // nothing specified for the layout (e.g. splash)?
-    if (layout_w == 0 || layout_h == 0) {
-        layout_w = 1920;
-        layout_h = 1080;
     }
 
     // adjust position of webview within the window, and apply the scale
@@ -137,28 +139,30 @@ void Window::setScaleImpl(int layout_w, int layout_h)
 
 void Window::runJavascriptImpl(QString js)
 {
-    std::cout << "INFO : [arexibo::qt] Run JavaScript: " << js.toStdString() << std::endl;
+    std::cout << "INFO : [arexibo::qt] run JavaScript: " << js.toStdString() << std::endl;
     view->page()->runJavaScript(js);
 }
 
 // Callbacks from JavaScript
 
-void JSInterface::jsConnected()
+void JSInterface::jsLayoutInit(int id, int width, int height)
 {
-    std::cout << "INFO : [arexibo::qt] WebChannel is connected" << std::endl;
+    std::cout << "INFO : [arexibo::qt] layout " << id << " initialized" << std::endl;
+    wnd->adjustScale(width, height);
+    wnd->cb(wnd->cb_ptr, CB_LAYOUT_INIT, id, width, height);
 }
 
 void JSInterface::jsLayoutDone()
 {
-    wnd->layout_cb(wnd->cb_ptr, 0);
+    wnd->cb(wnd->cb_ptr, CB_LAYOUT_NEXT, 0, 0, 0);
 }
 
 void JSInterface::jsLayoutPrev()
 {
-    wnd->layout_cb(wnd->cb_ptr, -1);
+    wnd->cb(wnd->cb_ptr, CB_LAYOUT_PREV, 0, 0, 0);
 }
 
 void JSInterface::jsLayoutJump(int which)
 {
-    wnd->layout_cb(wnd->cb_ptr, which);
+    wnd->cb(wnd->cb_ptr, CB_LAYOUT_JUMP, which, 0, 0);
 }

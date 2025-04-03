@@ -148,7 +148,8 @@ const SPLASH_HTML: &[u8] = br#"<!DOCTYPE html>
 <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 <script>
 new QWebChannel(qt.webChannelTransport, function(channel) {
-  window.arexibo = channel.objects.arexibo;
+  window.arexiboGui = channel.objects.arexibo;
+  window.arexiboGui.jsLayoutInit(0, 1920, 1080);
 });
 </script>
 </head>

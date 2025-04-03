@@ -189,6 +189,7 @@ impl Cache {
                 if typ == "layout" {
                     // translate the layout into HTML
                     let xl = layout::Translator::new(
+                        id,
                         &self.dir.join(&name),
                         &self.dir.join(format!("{}.html", name))
                     )?;

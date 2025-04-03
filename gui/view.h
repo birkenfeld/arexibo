@@ -5,10 +5,8 @@
 #include <QtWebEngineWidgets/QWebEngineView>
 #include <QtWebChannel/QWebChannel>
 #include <iostream>
-#include <cstdint>
 
-typedef void (*layout_callback)(void *, ssize_t which);
-typedef void (*screenshot_callback)(void *, const char *data, ssize_t len);
+#include "lib.h"
 
 class Window : public QMainWindow
 {
@@ -16,30 +14,32 @@ class Window : public QMainWindow
     friend class JSInterface;
 
 public:
-    Window(QString, int, void *, void *, void *);
+    Window(QString, int, callback, void *);
 
 private:
     QWebEngineView *view;
     QWebChannel *channel;
     QString base_uri;
 
+    callback cb;
     void *cb_ptr;
-    layout_callback layout_cb;
-    screenshot_callback shot_cb;
+
+    int layout_width;
+    int layout_height;
+
+    void adjustScale(int, int);
 
 signals:
     void navigateTo(QString);
     void screenShot();
     void setTitle(QString);
     void setSize(int, int, int, int);
-    void setScale(int, int);
     void runJavascript(QString);
 
 public slots:
     void navigateToImpl(QString);
     void screenShotImpl();
     void setSizeImpl(int, int, int, int);
-    void setScaleImpl(int, int);
     void runJavascriptImpl(QString);
 };
 
@@ -54,10 +54,10 @@ private:
     Window *wnd;
 
 public slots:
-    void jsConnected();
+    void jsLayoutInit(int, int, int);
     void jsLayoutDone();
     void jsLayoutPrev();
-    void jsLayoutJump(int which);
+    void jsLayoutJump(int);
 };
 
 #endif

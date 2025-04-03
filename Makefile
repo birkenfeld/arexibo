@@ -1,2 +1,2 @@
 binding:
-	bindgen --output src/qt_binding.rs gui/lib.h -- -xc++
+	bindgen --output src/qt_binding.rs --allowlist-file gui/lib.h gui/lib.h -- -xc++
