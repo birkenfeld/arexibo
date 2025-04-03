@@ -3,7 +3,7 @@
 
 //! Main collect loop that also processes XMR requests.
 
-use std::{path::{Path, PathBuf}, thread, time::Duration};
+use std::{fs, path::{Path, PathBuf}, thread, time::Duration};
 use anyhow::{bail, Context, Result};
 use crossbeam_channel::{after, never, select, tick, Receiver, Sender};
 use itertools::Itertools;
@@ -54,8 +54,14 @@ impl Handler {
         let mut schedule = Schedule::default();
         let layouts = Default::default();
 
+        // create directory to store raw XML responses for debugging
+        let xmldir = envdir.join("xml");
+        if !fs::metadata(&xmldir).map_or(false, |p| p.is_dir()) {
+            fs::create_dir_all(&xmldir)?;
+        }
+
         // make an initial register call, in order to get player settings
-        let mut xmds = xmds::Cms::new(&cms, pubkey, no_verify)?;
+        let mut xmds = xmds::Cms::new(&cms, pubkey, no_verify, xmldir)?;
         log::info!("doing initial register call to CMS");
 
         // try initial register call

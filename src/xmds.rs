@@ -9,6 +9,7 @@ mod soap {
     include!(concat!(env!("OUT_DIR"), "/xmds_soap.rs"));
 }
 
+use std::{fs, path::PathBuf};
 use anyhow::{ensure, Context, Result};
 use elementtree::Element;
 use serde::Serialize;
@@ -21,6 +22,7 @@ use crate::logger::LogEntry;
 /// Proxy for the XMDS calls to the CMS.
 pub struct Cms {
     service: soap::Service,
+    xml_dir: PathBuf,
     display_name: String,
     mac_addr: String,
     channel: String,
@@ -30,7 +32,7 @@ pub struct Cms {
 }
 
 impl Cms {
-    pub fn new(cms: &CmsSettings, pub_key: String, no_verify: bool) -> Result<Self> {
+    pub fn new(cms: &CmsSettings, pub_key: String, no_verify: bool, xml_dir: PathBuf) -> Result<Self> {
         Ok(Self {
             service: soap::Service::new(format!("{}/xmds.php?v=5", cms.address),
                                         cms.make_agent(no_verify)?),
@@ -40,7 +42,8 @@ impl Cms {
             channel: cms.xmr_channel(),
             cms_key: cms.key.to_owned(),
             hw_key: cms.display_id.to_owned(),
-            pub_key
+            pub_key,
+            xml_dir,
         })
     }
 
@@ -59,6 +62,7 @@ impl Cms {
                 xmrPubKey: &self.pub_key,
             }
         ).context("registering display")?.ActivationMessage;
+        let _ = fs::write(self.xml_dir.join("register.xml"), &xml);
 
         let tree = Element::from_reader(&mut xml.as_bytes()).context("parsing activation message")?;
         let code = tree.get_attr("code").context("no result code in activation")?;
@@ -89,6 +93,7 @@ impl Cms {
                 hardwareKey: &self.hw_key,
             }
         ).context("getting required files")?.RequiredFilesXml;
+        let _ = fs::write(self.xml_dir.join("required.xml"), &xml);
 
         let tree = Element::from_reader(&mut xml.as_bytes()).context("parsing required files")?;
         let mut res = vec![];
@@ -112,6 +117,7 @@ impl Cms {
                                       _ => unreachable!() },
                     size: file.parse_attr("size")?,
                     md5: hex::decode(&file.parse_attr::<String>("md5")?)?,
+                    code: file.get_attr("code").map(Into::into),
                     path, name, http,
                 });
             } else if typ == "resource" {
@@ -136,6 +142,7 @@ impl Cms {
                 hardwareKey: &self.hw_key,
             }
         ).context("getting schedule")?.ScheduleXml;
+        let _ = fs::write(self.xml_dir.join("schedule.xml"), &xml);
 
         let tree = Element::from_reader(&mut xml.as_bytes()).context("parsing schedule")?;
         Schedule::parse(tree)
