@@ -86,7 +86,7 @@ impl Cms {
         }
     }
 
-    pub fn required_files(&mut self) -> Result<Vec<ReqFile>> {
+    pub fn required_files(&mut self) -> Result<(Vec<ReqFile>, Vec<String>)> {
         let xml = self.service.RequiredFiles(
             soap::RequiredFilesRequest {
                 serverKey: &self.cms_key,
@@ -97,6 +97,7 @@ impl Cms {
 
         let tree = Element::from_reader(&mut xml.as_bytes()).context("parsing required files")?;
         let mut res = vec![];
+        let mut purge = vec![];
         for file in tree.find_all("file") {
             let typ = file.get_attr("type").context("missing file type")?;
             if typ == "media" || typ == "layout" {
@@ -132,7 +133,14 @@ impl Cms {
                 continue;
             }
         }
-        Ok(res)
+        for subtree in tree.find_all("purge") {
+            for item in subtree.find_all("item") {
+                if let Some(name) = item.get_attr("storedAs") {
+                    purge.push(name.into());
+                }
+            }
+        }
+        Ok((res, purge))
     }
 
     pub fn get_schedule(&mut self) -> Result<Schedule> {

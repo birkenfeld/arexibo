@@ -284,6 +284,21 @@ impl Cache {
         Ok(())
     }
 
+    pub fn purge_some(&mut self, list: &[String]) -> Result<()> {
+        let mut changed = false;
+        for name in list {
+            if self.content.contains_key(name) {
+                fs::remove_file(self.dir.join(name))?;
+                self.content.remove(name);
+                changed = true;
+            }
+        }
+        if changed {
+            self.save()?;
+        }
+        Ok(())
+    }
+
     pub fn purge(&mut self) -> Result<()> {
         log::info!("purging cache completely");
         for entry in fs::read_dir(&self.dir)? {
