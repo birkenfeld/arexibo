@@ -3,7 +3,7 @@
 
 //! XLF layout parser and translator.
 
-use std::{fs, io::{Write, BufWriter}};
+use std::{fs, io::{Write, BufWriter}, collections::HashMap};
 use std::path::Path;
 use anyhow::{Context, Result};
 use elementtree::Element;
@@ -15,7 +15,7 @@ use crate::util::{ElementExt, percent_decode};
 // - reloading resources in iframes
 // - overriding duration from resources
 
-pub const TRANSLATOR_VERSION: u32 = 6;
+pub const TRANSLATOR_VERSION: u32 = 7;
 
 const LAYOUT_CSS: &str = r#"
 body { margin: 0; background-repeat: no-repeat; overflow: hidden; }
@@ -88,23 +88,24 @@ window.arexibo = {
 
 type MediaInfo = (i32, i32, String, Option<String>, Option<String>);
 
-pub struct Translator {
-    id: i64,
+pub struct Translator<'a> {
+    id: LayoutId,
     tree: Option<Element>,
     out: BufWriter<fs::File>,
     regions: Vec<i32>,
     size: (i32, i32),
+    code_map: &'a HashMap<String, LayoutId>,
 }
 
-impl Translator {
-    pub fn new(id: i64, xlf: &Path, html: &Path) -> Result<Self> {
+impl<'a> Translator<'a> {
+    pub fn new(id: LayoutId, xlf: &Path, html: &Path, code_map: &'a HashMap<String, LayoutId>) -> Result<Self> {
         let file = fs::File::open(xlf)?;
         let tree = Some(Element::from_reader(file).context("parsing XLF")?);
 
         let out = fs::File::create(html)?;
         let out = BufWriter::new(out);
 
-        Ok(Self { id, tree, out, regions: Vec::new(), size: (0, 0) })
+        Ok(Self { id, tree, out, regions: Vec::new(), size: (0, 0), code_map })
     }
 
     pub fn translate(mut self) -> Result<(i32, i32)> {
@@ -116,30 +117,41 @@ impl Translator {
             }
         }
         writeln!(self.out, "<script type='text/javascript'>")?;
-        for el in tree.find_all("action") {
-            let typ = el.req_attr("triggerType")?;
-            let action = el.req_attr("actionType")?;
-            let target = el.req_attr("target")?;
-            let targetid = el.parse_attr::<i64>("targetId")?;
-            let code = el.def_attr("triggerCode", "<not set>");
-            let layout = el.def_attr("layoutCode", "<not set>");
-            if typ == "webhook" {
-                writeln!(self.out, "  window.arexibo.triggers['{code}'] = {{")?;
-                writeln!(self.out, "    action: '{action}',")?;
-                writeln!(self.out, "    target: '{target}',")?;
-                writeln!(self.out, "    targetid: {targetid},")?;
-                writeln!(self.out, "    layout: '{layout}'")?;
-                writeln!(self.out, "  }};")?;
-            } else if typ == "touch" {
-                // TODO
-                log::warn!("unsupported action type: {typ}");
-            } else {
-                log::warn!("unsupported action type: {typ}");
+        for action in tree.find_all("action") {
+            if let Err(e) = self.write_action(action) {
+                log::error!("layout: could not translate action: {:#}", e);
             }
         }
         writeln!(self.out, "</script>")?;
         self.write_footer()?;
         Ok(self.size)
+    }
+
+    fn write_action(&mut self, el: &Element) -> Result<()> {
+        let typ = el.req_attr("triggerType")?;
+        let action = el.req_attr("actionType")?;
+        let target = el.req_attr("target")?;
+        let targetid = el.parse_attr::<i64>("targetId")?;
+        let code = el.def_attr("triggerCode", "<not set>");
+        let layoutcode = el.def_attr("layoutCode", "<not set>");
+        let mut layoutid = 0;
+        if action == "navLayout" {
+            layoutid = self.code_map.get(layoutcode).cloned().context("unknown layout code")?;
+        }
+        if typ == "webhook" {
+            writeln!(self.out, "  window.arexibo.triggers['{code}'] = {{")?;
+            writeln!(self.out, "    action: '{action}',")?;
+            writeln!(self.out, "    target: '{target}',")?;
+            writeln!(self.out, "    targetid: {targetid},")?;
+            writeln!(self.out, "    layoutid: {layoutid}")?;
+            writeln!(self.out, "  }};")?;
+        } else if typ == "touch" {
+            // TODO
+            log::warn!("unsupported action type: {typ}");
+        } else {
+            log::warn!("unsupported action type: {typ}");
+        }
+        Ok(())
     }
 
     fn write_header(&mut self, el: &Element) -> Result<()> {

@@ -26,6 +26,7 @@ pub enum ReqFile {
         http: bool,
         path: String,
         name: String,
+        code: Option<String>,
     },
     Resource {
         id: i64,
@@ -52,16 +53,15 @@ impl ReqFile {
     }
 }
 
-fn none<T>() -> Option<T> { None }
-fn default_version() -> u32 { 0 }
-
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct LayoutInfo {
-    pub id: i64,
+    pub id: LayoutId,
     #[serde(deserialize_with = "util::de_hex", serialize_with = "util::ser_hex")]
     pub md5: Vec<u8>,
     pub size: (i32, i32),
-    #[serde(default = "default_version")]
+    #[serde(default)]
+    pub code: Option<String>,
+    #[serde(default)]
     pub translated_version: u32,
 }
 
@@ -97,6 +97,7 @@ pub struct Cache {
     dir: PathBuf,
     agent: Agent,
     content: HashMap<String, Resource>,
+    code_map: HashMap<String, LayoutId>,
 }
 
 impl Cache {
@@ -127,7 +128,16 @@ impl Cache {
             });
         }
 
-        Ok(Self { dir, agent: cms.make_agent(no_verify)?, content })
+        let code_map = content.values().filter_map(|v| {
+            if let Resource::Layout(info) = v {
+                if let Some(code) = &info.code {
+                    return Some((code.clone(), info.id));
+                }
+            }
+            None
+        }).collect();
+
+        Ok(Self { dir, agent: cms.make_agent(no_verify)?, content, code_map })
     }
 
     pub fn dir(&self) -> &PathBuf {
@@ -173,7 +183,7 @@ impl Cache {
                 )));
                 self.save()?;
             }
-            ReqFile::File { id, typ, http, size, md5, path, name } => {
+            ReqFile::File { id, typ, http, size, md5, path, name, code } => {
                 let filename = self.dir.join(&name);
                 if http {
                     match self.download_http(&path, &filename, &md5) {
@@ -193,11 +203,13 @@ impl Cache {
                     let xl = layout::Translator::new(
                         id,
                         &self.dir.join(&name),
-                        &self.dir.join(format!("{}.html", name))
+                        &self.dir.join(format!("{}.html", name)),
+                        &self.code_map
                     )?;
                     let size = xl.translate()?;
                     self.content.insert(name, Resource::Layout(Arc::new(
-                        LayoutInfo { id, md5, size, translated_version: TRANSLATOR_VERSION }
+                        LayoutInfo { id, md5, size, code,
+                                     translated_version: TRANSLATOR_VERSION }
                     )));
                 } else {
                     self.content.insert(name, Resource::Media(Arc::new(
@@ -233,6 +245,15 @@ impl Cache {
             wrapper.write_all(&chunk)?;
         }
         ensure!(wrapper.hash() == md5, "md5 mismatch");
+        Ok(())
+    }
+
+    pub fn update_code_map(&mut self, files: &[ReqFile]) -> Result<()> {
+        for file in files {
+            if let ReqFile::File { typ: "layout", id, code: Some(code), .. } = file {
+                self.code_map.insert(code.clone(), *id);
+            }
+        }
         Ok(())
     }
 

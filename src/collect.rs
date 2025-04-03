@@ -188,6 +188,9 @@ impl Handler {
         // get the missing files
         let required = self.xmds.required_files()?;
 
+        // update layout code map
+        self.cache.update_code_map(&required)?;
+
         // get the schedule
         let schedule = self.xmds.get_schedule()?;
 
