@@ -17,6 +17,7 @@ use crate::config::CmsSettings;
 pub enum Message {
     CollectNow,
     Screenshot,
+    Purge,
 }
 
 pub struct Manager {
@@ -107,6 +108,7 @@ impl JsonMessage {
             // we treat this the same as a collect, which will re-send the pubkey
             "rekeyAction" => Some(Message::CollectNow),
             "screenShot" => Some(Message::Screenshot),
+            "purgeAll" => Some(Message::Purge),
             _ => {
                 log::info!("got unsupported XMR action {:?}", self.action);
                 None

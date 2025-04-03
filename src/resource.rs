@@ -259,6 +259,19 @@ impl Cache {
         serde_json::to_writer_pretty(fp, &self.content).context("serializing cache content")?;
         Ok(())
     }
+
+    pub fn purge(&mut self) -> Result<()> {
+        log::info!("purging cache completely");
+        for entry in fs::read_dir(&self.dir)? {
+            let entry = entry?;
+            if entry.file_type()?.is_file() {
+                fs::remove_file(entry.path())?;
+            }
+        }
+        self.content.clear();
+        self.save()?;
+        Ok(())
+    }
 }
 
 

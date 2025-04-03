@@ -138,6 +138,12 @@ impl Handler {
                 recv(self.xmr) -> msg => match msg {
                     Ok(xmr::Message::CollectNow) => collect = after(Duration::from_secs(0)),
                     Ok(xmr::Message::Screenshot) => screenshot = after(Duration::from_secs(0)),
+                    Ok(xmr::Message::Purge) => {
+                        if let Err(e) = self.cache.purge() {
+                            log::error!("durign cache purge: {:#}", e);
+                        }
+                        collect = after(Duration::from_secs(0));  // force re-download
+                    }
                     Err(_) => ()
                 },
                 // channel for screenshot data from the GUI thread
