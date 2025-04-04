@@ -19,6 +19,7 @@ pub enum Message {
     Screenshot,
     Purge,
     WebHook(String),
+    Command(String),
 }
 
 pub struct Manager {
@@ -88,6 +89,9 @@ struct JsonMessage {
     #[serde(rename = "triggerCode")]
     #[serde(default)]
     trigger_code: Option<String>,  // for webhooks
+    #[serde(rename = "commandCode")]
+    #[serde(default)]
+    command_code: Option<String>,  // for commands
 }
 
 impl JsonMessage {
@@ -113,7 +117,8 @@ impl JsonMessage {
             "rekeyAction" => Some(Message::CollectNow),
             "screenShot" => Some(Message::Screenshot),
             "purgeAll" => Some(Message::Purge),
-            "triggerWebhook" => Some(Message::WebHook(self.trigger_code.unwrap_or_default())),
+            "triggerWebhook" => self.trigger_code.map(Message::WebHook),
+            "commandAction" => self.command_code.map(Message::Command),
             _ => {
                 log::info!("got unsupported XMR action {:?}", self.action);
                 None

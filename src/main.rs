@@ -11,6 +11,7 @@ pub mod schedule;
 pub mod layout;
 pub mod xmds;
 pub mod xmr;
+pub mod command;
 pub mod logger;
 pub mod util;
 pub mod gui;

@@ -9,11 +9,12 @@ mod soap {
     include!(concat!(env!("OUT_DIR"), "/xmds_soap.rs"));
 }
 
-use std::{fs, path::PathBuf};
+use std::{collections::HashMap, fs, path::PathBuf};
 use anyhow::{ensure, Context, Result};
 use elementtree::Element;
 use serde::Serialize;
 use crate::config::{CmsSettings, PlayerSettings};
+use crate::command::Command;
 use crate::util::{TIME_FMT, Base64Field, ElementExt, retrieve_mac, get_display_name};
 use crate::resource::ReqFile;
 use crate::schedule::Schedule;
@@ -69,6 +70,18 @@ impl Cms {
         if code != "READY" {
             Ok(None)
         } else {
+            let mut commands = HashMap::new();
+            for cmds in tree.find_all("commands") {
+                for el in cmds.children() {
+                    commands.insert(el.tag().name().into(),
+                                    Command {
+                                        command: el.parse_child("commandString")?,
+                                        validate: el.parse_child("validationString")?,
+                                        alerts: el.parse_child("createAlertOn")?,
+                                    });
+                }
+            }
+
             Ok(Some(PlayerSettings {
                 xmr_network_address: tree.parse_child("xmrNetworkAddress")?,
                 log_level: tree.parse_child("logLevel")?,
@@ -82,6 +95,7 @@ impl Cms {
                 size_y: tree.parse_child("sizeY")?,
                 pos_x: tree.parse_child("offsetX")?,
                 pos_y: tree.parse_child("offsetY")?,
+                commands,
             }))
         }
     }
@@ -263,13 +277,20 @@ impl Cms {
         Ok(())
     }
 
+    pub fn notify_command_success(&mut self, result: bool) -> Result<()> {
+        self.notify_status_raw(format!("{{\"lastCommandSuccess\": {}}}", result))
+    }
+
     pub fn notify_status(&mut self, status: Status<'_>) -> Result<()> {
-        let json_status = serde_json::to_string(&status)?;
+        self.notify_status_raw(serde_json::to_string(&status)?)
+    }
+
+    fn notify_status_raw(&mut self, status: String) -> Result<()> {
         let res = self.service.NotifyStatus(
             soap::NotifyStatusRequest {
                 serverKey: &self.cms_key,
                 hardwareKey: &self.hw_key,
-                status: &json_status,
+                status: &status,
             }
         ).context("notifying status")?;
         ensure!(res.success, "status notification not successful");

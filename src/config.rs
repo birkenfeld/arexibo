@@ -3,10 +3,11 @@
 
 //! Definitions for the player configuration.
 
-use std::{fs::File, path::Path, time::Duration};
+use std::{collections::HashMap, fs::File, path::Path, time::Duration};
 use anyhow::{Context, Result};
 use md5::{Md5, Digest};
 use serde::{Serialize, Deserialize};
+use crate::command::Command;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct PlayerSettings {
@@ -34,6 +35,8 @@ pub struct PlayerSettings {
     pub pos_x: i32,
     #[serde(default)]
     pub pos_y: i32,
+    #[serde(default)]
+    pub commands: HashMap<String, Command>,
 }
 
 impl PlayerSettings {

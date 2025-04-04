@@ -68,9 +68,9 @@ impl Handler {
         let res = match xmds.register_display() {
             Err(e) => {
                 if !allow_offline {
-                    bail!("CMS not reachable or call failed: {:#}", e);
+                    bail!("CMS not reachable or call failed: {e:#}");
                 }
-                log::warn!("CMS not reachable or call failed: {:#}", e);
+                log::warn!("CMS not reachable or call failed: {e:#}");
                 match PlayerSettings::from_file(&setting_file) {
                     Ok(settings) => {
                         log::info!("using cached settings");
@@ -124,7 +124,7 @@ impl Handler {
                 // timer channel that fires when collect is needed
                 recv(collect) -> _ => {
                     if let Err(e) = self.collect_once() {
-                        log::error!("during collect: {:#}", e);
+                        log::error!("during collect: {e:#}");
                     }
                     collect = after(Duration::from_secs(self.settings.collect_interval));
                 },
@@ -147,12 +147,26 @@ impl Handler {
                     Ok(xmr::Message::Screenshot) => screenshot = after(Duration::from_secs(0)),
                     Ok(xmr::Message::Purge) => {
                         if let Err(e) = self.cache.purge() {
-                            log::error!("durign cache purge: {:#}", e);
+                            log::error!("durign cache purge: {e:#}");
                         }
                         collect = after(Duration::from_secs(0));  // force re-download
                     }
                     Ok(xmr::Message::WebHook(code)) => {
                         self.to_gui.send(ToGui::WebHook(code)).unwrap();
+                    }
+                    Ok(xmr::Message::Command(code)) => {
+                        if let Some(cmd) = self.settings.commands.get(&code) {
+                            let success = match cmd.run() {
+                                Ok(success) => success,
+                                Err(e) => {
+                                    log::error!("running command {code}: {e:#}");
+                                    false
+                                }
+                            };
+                            let _ = self.xmds.notify_command_success(success);
+                        } else {
+                            log::error!("no such player command: {code}");
+                        }
                     }
                     Err(_) => ()
                 },
@@ -160,7 +174,7 @@ impl Handler {
                 recv(self.from_gui) -> data => match data {
                     Ok(FromGui::Screenshot(data)) => {
                         if let Err(e) = self.xmds.submit_screenshot(data) {
-                            log::error!("submitting screenshot: {:#}", e);
+                            log::error!("submitting screenshot: {e:#}");
                         }
                     }
                     Ok(FromGui::Showing(layout)) =>
@@ -210,7 +224,7 @@ impl Handler {
                 {
                     Ok(_) => result.push((inventory, true)),
                     Err(e) => {
-                        log::error!("{:#}", e);
+                        log::error!("{e:#}");
                         result.push((inventory, false));
                     }
                 }

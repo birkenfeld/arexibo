@@ -44,6 +44,10 @@ tiny_http = "0.12"
 ureq = { version = "3.0", features = ["socks-proxy"] }
 zmq = "0.10"
 
+# commands
+serialport = "4.7"
+regex = "1.0"
+
 # MSRV
 base64ct = "~1.6"
 
