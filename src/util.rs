@@ -90,6 +90,7 @@ pub fn percent_decode(s: &str) -> String {
                     iter.nth(1);
                 }
             },
+            '+' => res.push(' '),
             _ => res.push(ch),
         }
     }

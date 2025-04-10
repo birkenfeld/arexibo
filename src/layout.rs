@@ -14,6 +14,7 @@ use crate::util::{ElementExt, percent_decode};
 // - transitions
 // - reloading resources in iframes
 // - overriding duration from resources
+// - zindex
 // - fromDt/toDt
 
 pub const TRANSLATOR_VERSION: u32 = 9;
@@ -298,9 +299,9 @@ impl<'a> Translator<'a> {
                          object_fit(opts), object_pos(opts))?;
             }
             (_, Some("video")) | (_, Some("localvideo")) => {
-                let filename = opts.find("uri").context("no video uri")?.text();
+                let url = percent_decode(opts.find("uri").context("no video uri")?.text());
                 let mute = opts.find("mute").map_or(false, |el| el.text() == "1");
-                writeln!(self.out, "<video class='media r{rid}' id='m{mid}' src='{filename}' {} \
+                writeln!(self.out, "<video class='media r{rid}' id='m{mid}' src='{url}' {} \
                                     style='left: {x}px; top: {y}px; width: {w}px; \
                                     height: {h}px;{}{}'></video>",
                          if mute { "muted" } else { "" },
