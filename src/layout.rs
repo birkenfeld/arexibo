@@ -14,7 +14,6 @@ use crate::util::{ElementExt, percent_decode};
 // - transitions
 // - reloading resources in iframes
 // - overriding duration from resources
-// - zindex
 // - fromDt/toDt
 
 pub const TRANSLATOR_VERSION: u32 = 9;
@@ -224,8 +223,14 @@ impl<'a> Translator<'a> {
         let w = region.parse_attr("width")?;
         let h = region.parse_attr("height")?;
         let geom = [x, y, w, h];
-
         writeln!(self.out, "<!-- region {} -->", rid)?;
+
+        if let Some(zindex) = region.get_attr("zindex") {
+            writeln!(self.out, "<style type='text/css'> \
+                                .r{rid} {{ z-index: {zindex}; }} \
+                                </style>")?;
+        }
+
         let mut sequence = Vec::new();
         for media in region.find_all("media") {
             match self.write_media(rid, geom, media) {
