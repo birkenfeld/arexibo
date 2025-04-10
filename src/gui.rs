@@ -7,7 +7,7 @@ use std::ffi::{c_void, CStr, CString};
 use std::sync::{Arc, Mutex};
 use crossbeam_channel::{Sender, Receiver};
 use crate::config::PlayerSettings;
-use crate::collect::{ToGui, FromGui, Kill};
+use crate::mainloop::{ToGui, FromGui, Kill};
 use crate::resource::LayoutId;
 
 #[path = "qt_binding.rs"]
