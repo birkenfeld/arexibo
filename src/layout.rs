@@ -67,9 +67,10 @@ window.arexibo = {
     media[next][0]();
 
     // set timeout to switch to the next media
+    let duration = media[next][2]() || 1;
     this.regions[rid].timeoutid = window.setTimeout(() => {
       this.region_switch(rid, -1, false);
-    }, media[next][2] * 1000);
+    }, duration * 1000);
   },
 
   region_done: function(rid) {
@@ -272,8 +273,8 @@ impl<'a> Translator<'a> {
                    media: &Element) -> Result<Option<MediaInfo>> {
         let mid = media.parse_attr("id")?;
         let opts = media.find("options").context("no options")?;
-        let mut duration = media.def_attr("duration", "").parse::<i32>()
-            .unwrap_or(10).to_string();
+        let mut duration = format!(
+            "() => {}", media.def_attr("duration", "").parse::<i32>().unwrap_or(10));
         let mut add_start = "".into();
         let mut add_stop = "".into();
         writeln!(self.out, "  <!-- media {mid} -->")?;
@@ -307,7 +308,7 @@ impl<'a> Translator<'a> {
                          if mute { "muted" } else { "" },
                          object_fit(opts), object_pos(opts))?;
                 add_start = format!("document.getElementById('m{}').play();", mid);
-                duration = format!("document.getElementById('m{}').duration", mid);
+                duration = format!("() => document.getElementById('m{}').duration", mid);
             }
             (_, Some("shellcommand")) => {
                 writeln!(self.out, "<div class='media r{rid}' id='m{mid}' \
