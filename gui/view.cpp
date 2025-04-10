@@ -166,3 +166,20 @@ void JSInterface::jsLayoutJump(int which)
 {
     wnd->cb(wnd->cb_ptr, CB_LAYOUT_JUMP, which, 0, 0);
 }
+
+void JSInterface::jsCommand(QString code)
+{
+    std::string std_code = code.toStdString();
+    wnd->cb(wnd->cb_ptr, CB_COMMAND, (intptr_t)std_code.c_str(), 0, 0);
+}
+
+void JSInterface::jsShell(QString command, int with_shell)
+{
+    std::string std_cmd = command.toStdString();
+    wnd->cb(wnd->cb_ptr, CB_SHELL, (intptr_t)std_cmd.c_str(), with_shell, 0);
+}
+
+void JSInterface::jsStopShell(int kill_mode)
+{
+    wnd->cb(wnd->cb_ptr, CB_STOPSHELL, kill_mode, 0, 0);
+}

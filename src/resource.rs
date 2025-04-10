@@ -123,7 +123,10 @@ impl Cache {
 
             // remove any layout descriptions if translated version is outdated
             content.retain(|_, res| match res {
-                Resource::Layout(layout) => layout.translated_version == TRANSLATOR_VERSION,
+                Resource::Layout(layout) => {
+                    TRANSLATOR_VERSION != 0 &&   // 0 = development mode
+                    layout.translated_version == TRANSLATOR_VERSION
+                },
                 _ => true
             });
         }

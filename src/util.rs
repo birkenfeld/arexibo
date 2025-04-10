@@ -41,6 +41,7 @@ pub trait ElementExt {
     fn def_attr<'a>(&'a self, attr: &'a str, def: &'a str) -> &'a str;
     fn parse_attr<T: FromStr>(&self, attr: &str) -> Result<T>
         where T::Err: std::error::Error + Sync + Send + 'static;
+    fn req_child<'a>(&'a self, child: &'a str) -> Result<&'a str>;
     fn parse_child<T: FromStr>(&self, child: &str) -> Result<T>
         where T::Err: std::error::Error + Sync + Send + 'static;
 }
@@ -55,14 +56,19 @@ impl ElementExt for elementtree::Element {
     }
 
     fn parse_attr<T: FromStr>(&self, attr: &str) -> Result<T>
-        where T::Err: std::error::Error+Sync+Send+'static
+        where T::Err: std::error::Error + Sync + Send + 'static
     {
         self.get_attr(attr).with_context(|| format!("missing {}", attr))?
                            .parse().with_context(|| format!("invalid {}", attr))
     }
 
+    fn req_child<'a>(&'a self, child: &'a str) -> Result<&'a str>
+    {
+        Ok(self.find(child).with_context(|| format!("missing {}", child))?.text())
+    }
+
     fn parse_child<T: FromStr>(&self, child: &str) -> Result<T>
-        where T::Err: std::error::Error+Sync+Send+'static
+        where T::Err: std::error::Error + Sync + Send + 'static
     {
         self.find(child).with_context(|| format!("missing {}", child))?
                         .text()

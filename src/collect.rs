@@ -9,6 +9,7 @@ use crossbeam_channel::{after, never, select, tick, Receiver, Sender};
 use itertools::Itertools;
 use rand::rngs::OsRng;
 use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::{DecodePrivateKey, EncodePrivateKey, EncodePublicKey}};
+use subprocess::Popen;
 use crate::config::{CmsSettings, PlayerSettings};
 use crate::{logger, util, xmds, xmr};
 use crate::resource::Cache;
@@ -22,10 +23,19 @@ pub enum ToGui {
     WebHook(String),
 }
 
+pub enum Kill {
+    No,
+    Terminate,
+    Kill,
+}
+
 /// Messages received from the GUI thread
 pub enum FromGui {
     Showing(i64),
     Screenshot(Vec<u8>),
+    Command(String),
+    Shell(String, bool),
+    StopShell(Kill),
 }
 
 /// Backend handler that performs the collect loop and XMDS requests.
@@ -40,6 +50,7 @@ pub struct Handler {
     schedule: Schedule,
     layouts: Vec<i64>,
     current_layout: i64,
+    shell_process: Option<Popen>,
 }
 
 impl Handler {
@@ -48,7 +59,8 @@ impl Handler {
                no_verify: bool, allow_offline: bool,
                to_gui: Sender<ToGui>, from_gui: Receiver<FromGui>) -> Result<Self> {
         let (privkey, pubkey) = load_or_create_keypair(envdir)?;
-        let cache = Cache::new(&cms, envdir.join("res"), clear_cache, no_verify).context("creating cache")?;
+        let cache = Cache::new(&cms, envdir.join("res"), clear_cache, no_verify)
+            .context("creating cache")?;
         let setting_file = envdir.join("settings.json");
         let sched_file = envdir.join("sched.json");
         let mut schedule = Schedule::default();
@@ -97,7 +109,8 @@ impl Handler {
             settings.to_file(&setting_file).context("writing player settings")?;
 
             let mut slf = Self { to_gui, from_gui, settings, cache, xmds, xmr, schedule,
-                                 layouts, envdir: envdir.into(), current_layout: 0 };
+                                 layouts, envdir: envdir.into(), current_layout: 0,
+                                 shell_process: None };
             slf.update_settings();
             slf.schedule_check();  // only useful in case of cached schedule
             Ok(slf)
@@ -155,22 +168,11 @@ impl Handler {
                         self.to_gui.send(ToGui::WebHook(code)).unwrap();
                     }
                     Ok(xmr::Message::Command(code)) => {
-                        if let Some(cmd) = self.settings.commands.get(&code) {
-                            let success = match cmd.run() {
-                                Ok(success) => success,
-                                Err(e) => {
-                                    log::error!("running command {code}: {e:#}");
-                                    false
-                                }
-                            };
-                            let _ = self.xmds.notify_command_success(success);
-                        } else {
-                            log::error!("no such player command: {code}");
-                        }
+                        self.run_command(&code);
                     }
                     Err(_) => ()
                 },
-                // channel for screenshot data from the GUI thread
+                // channel for  from the GUI thread
                 recv(self.from_gui) -> data => match data {
                     Ok(FromGui::Screenshot(data)) => {
                         if let Err(e) = self.xmds.submit_screenshot(data) {
@@ -179,9 +181,57 @@ impl Handler {
                     }
                     Ok(FromGui::Showing(layout)) =>
                         self.current_layout = layout,
-                    _ => ()
+                    Ok(FromGui::Command(code)) =>
+                        self.run_command(&code),
+                    Ok(FromGui::Shell(code, with_shell)) =>
+                        self.run_shell(code, with_shell),
+                    Ok(FromGui::StopShell(kill_mode)) => {
+                        if let Some(mut child) = self.shell_process.take() {
+                            match kill_mode {
+                                Kill::No => self.shell_process = None,  // let it run
+                                Kill::Terminate => { let _ = child.terminate(); }
+                                Kill::Kill => { let _ = child.kill(); }
+                            }
+                        }
+                    }
+                    Err(_) => ()
                 }
             }
+        }
+    }
+
+    /// Run a command, triggered from XMR or layout.
+    fn run_command(&mut self, code: &str) {
+        if let Some(cmd) = self.settings.commands.get(code) {
+            let success = match cmd.run() {
+                Ok(success) => success,
+                Err(e) => {
+                    log::warn!("running command {code}: {e:#}");
+                    false
+                }
+            };
+            let _ = self.xmds.notify_command_success(success);
+        } else {
+            log::error!("no such player command: {code}");
+        }
+    }
+
+    /// Run a shell command, triggered from layout.
+    fn run_shell(&mut self, code: String, with_shell: bool) {
+        let config = Default::default();
+        let res = if with_shell {
+            Popen::create(&["/bin/sh", "-c", &code], config)
+        } else {
+            if let Some(parts) = shlex::split(&code) {
+                Popen::create(&parts, config)
+            } else {
+                log::error!("invalid command line: {code}");
+                return;
+            }
+        };
+        match res {
+            Ok(child) => self.shell_process = Some(child),
+            Err(e) => log::error!("spawning command {code}: {e:#}"),
         }
     }
 

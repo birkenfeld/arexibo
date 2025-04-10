@@ -14,6 +14,9 @@ pub const CB_LAYOUT_NEXT: isize = 2;
 pub const CB_LAYOUT_PREV: isize = 3;
 pub const CB_LAYOUT_JUMP: isize = 4;
 pub const CB_SCREENSHOT: isize = 5;
+pub const CB_COMMAND: isize = 6;
+pub const CB_SHELL: isize = 7;
+pub const CB_STOPSHELL: isize = 8;
 extern "C" {
     pub fn setup(
         base_uri: *const ::std::os::raw::c_char,

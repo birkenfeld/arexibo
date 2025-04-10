@@ -3,11 +3,11 @@
 
 //! Bindings to the C++/Qt GUI part of the application.
 
-use std::ffi::{c_void, CString};
+use std::ffi::{c_void, CStr, CString};
 use std::sync::{Arc, Mutex};
 use crossbeam_channel::{Sender, Receiver};
 use crate::config::PlayerSettings;
-use crate::collect::{ToGui, FromGui};
+use crate::collect::{ToGui, FromGui, Kill};
 use crate::resource::LayoutId;
 
 #[path = "qt_binding.rs"]
@@ -117,6 +117,24 @@ extern "C" fn callback(ptr: *mut c_void, typ: isize, arg1: isize, arg2: isize, _
             unsafe {
                 cpp::navigate(file.as_ptr());
             }
+        }
+        cpp::CB_COMMAND | cpp::CB_SHELL => {
+            let cmd = unsafe { CStr::from_ptr(arg1 as *const _) };
+            let cmd = cmd.to_str().unwrap_or_default().to_owned();
+            if typ == cpp::CB_SHELL {
+                let use_shell = arg2 != 0;
+                cb_data.sender.send(FromGui::Shell(cmd, use_shell)).unwrap();
+            } else {
+                cb_data.sender.send(FromGui::Command(cmd)).unwrap();
+            }
+        }
+        cpp::CB_STOPSHELL => {
+            let killmode = match arg2 & 0xff {
+                0 => Kill::No,
+                1 => Kill::Terminate,
+                _ => Kill::Kill,
+            };
+            cb_data.sender.send(FromGui::StopShell(killmode)).unwrap();
         }
         _ => {
             log::warn!("got unknown callback from Qt: {}", typ);

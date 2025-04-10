@@ -15,7 +15,7 @@ use crate::util::{ElementExt, percent_decode};
 // - reloading resources in iframes
 // - overriding duration from resources
 
-pub const TRANSLATOR_VERSION: u32 = 7;
+pub const TRANSLATOR_VERSION: u32 = 0;
 
 const LAYOUT_CSS: &str = r#"
 body { margin: 0; background-repeat: no-repeat; overflow: hidden; }
@@ -40,14 +40,33 @@ window.arexibo = {
   regions: {},
 
   region_switch: function(rid, next, first) {
-    let {cur, total, timeout, transitions} = this.regions[rid];
+    let {cur, total, timeoutid, media} = this.regions[rid];
+    // stop a timeout, if it still exists
+    window.clearTimeout(timeoutid);
+
+    // determine next media
     if (next == -1)
       next = (cur + 1) % total;
     else if (next == -2)
       next = (cur + total - 1) % total;
+
+    // stop showing the current media
+    if (cur !== null)
+      media[cur][1]();
+
     this.regions[rid].cur = next;
-    window.clearTimeout(timeout);
-    transitions[next](first);
+    // when the first media is called for the second time, the region is "done"
+    if (next == 0 && !first) {
+      this.region_done(rid);
+    }
+
+    // start showing the next media
+    media[next][0]();
+
+    // set timeout to switch to the next media
+    this.regions[rid].timeoutid = window.setTimeout(() => {
+      this.region_switch(rid, -1, false);
+    }, media[next][2] * 1000);
   },
 
   region_done: function(rid) {
@@ -86,7 +105,7 @@ window.arexibo = {
 "#;
 
 
-type MediaInfo = (i32, i32, String, Option<String>, Option<String>);
+type MediaInfo = (i32, String, String, String);
 
 pub struct Translator<'a> {
     id: LayoutId,
@@ -98,7 +117,8 @@ pub struct Translator<'a> {
 }
 
 impl<'a> Translator<'a> {
-    pub fn new(id: LayoutId, xlf: &Path, html: &Path, code_map: &'a HashMap<String, LayoutId>) -> Result<Self> {
+    pub fn new(id: LayoutId, xlf: &Path, html: &Path,
+               code_map: &'a HashMap<String, LayoutId>) -> Result<Self> {
         let file = fs::File::open(xlf)?;
         let tree = Some(Element::from_reader(file).context("parsing XLF")?);
 
@@ -139,12 +159,12 @@ impl<'a> Translator<'a> {
             layoutid = self.code_map.get(layoutcode).cloned().context("unknown layout code")?;
         }
         if typ == "webhook" {
-            writeln!(self.out, "  window.arexibo.triggers['{code}'] = {{")?;
-            writeln!(self.out, "    action: '{action}',")?;
-            writeln!(self.out, "    target: '{target}',")?;
-            writeln!(self.out, "    targetid: {targetid},")?;
-            writeln!(self.out, "    layoutid: {layoutid}")?;
-            writeln!(self.out, "  }};")?;
+            writeln!(self.out, "arexibo.triggers[{code:?}] = {{")?;
+            writeln!(self.out, "  action: {action:?},")?;
+            writeln!(self.out, "  target: {target:?},")?;
+            writeln!(self.out, "  targetid: {targetid},")?;
+            writeln!(self.out, "  layoutid: {layoutid}")?;
+            writeln!(self.out, "}};")?;
         } else if typ == "touch" {
             // TODO
             log::warn!("touch actions not yet supported");
@@ -169,10 +189,11 @@ impl<'a> Translator<'a> {
         writeln!(self.out, "<style type='text/css'>{}", LAYOUT_CSS)?;
 
         if let Some(file) = el.get_attr("background") {
-            writeln!(self.out, "body {{ background-image: url('{}'); background-size: 100vw 100vh; }}", file)?;
+            writeln!(self.out, "body {{ background-image: url('{file}'); \
+                                background-size: 100vw 100vh; }}")?;
         }
         if let Some(color) = el.get_attr("bgcolor") {
-            writeln!(self.out, "body {{ background-color: {}; }}", color)?;
+            writeln!(self.out, "body {{ background-color: {color}; }}")?;
         }
 
         writeln!(self.out, "</style>")?;
@@ -217,45 +238,26 @@ impl<'a> Translator<'a> {
 
         writeln!(self.out, "<script type='text/javascript'>")?;
         writeln!(self.out, "arexibo.regions[{rid}] = {{")?;
-        writeln!(self.out, "  cur: 0,")?;
-        writeln!(self.out, "  total: {nitems},")?;
-        writeln!(self.out, "  timeout: null,")?;
         writeln!(self.out, "  done: false,")?;
-        writeln!(self.out, "  transitions: [")?;
-        // for each media, create a function to display it and schedule the next one
-        for (i, (mid, duration, custom_start,
-                 custom_transition, custom_duration)) in sequence.iter().enumerate() {
-            writeln!(self.out, "    function(first) {{")?;
+        writeln!(self.out, "  cur: null,")?;
+        writeln!(self.out, "  timeoutid: null,")?;
+        writeln!(self.out, "  total: {nitems},")?;
+        writeln!(self.out, "  media: [")?;
 
-            // when the first media is called for the second time, the region is "done"
-            if i == 0 {
-                writeln!(self.out, "      if (!first) {{ arexibo.region_done({rid}); }}")?;
-            }
-
+        // for each media, write functions to start/stop displaying it
+        for (mid, duration, add_start, add_stop) in sequence {
+            writeln!(self.out, "    [function() {{")?;
+            writeln!(self.out, "      document.getElementById('m{mid}').style.\
+                                visibility = 'visible';")?;
+            writeln!(self.out, "      {add_start}")?;
+            writeln!(self.out, "    }}, function() {{")?;
             // if only one item is present, don't need to hide the others
             if nitems > 1 {
-                writeln!(self.out, "      for (let el of document.querySelectorAll('.r{rid}')) \
-                                    el.style.visibility = 'hidden';")?;
+                writeln!(self.out, "      document.getElementById('m{mid}').style.\
+                                    visibility = 'hidden'; ")?;
             }
-            writeln!(self.out, "      document.getElementById('m{mid}').style.\
-                                visibility = 'visible'; {custom_start}")?;
-
-            // schedule the next one: either after duration, or with custom code
-            let next_i = if i == sequence.len() - 1 { 0 } else { i+1 };
-            let next_fn = format!("arexibo.region_switch({rid}, {next_i});");
-            if let Some(tmpl) = custom_transition {
-                writeln!(self.out, "  {}", tmpl.replace("###", &next_fn))?;
-            }
-            if *duration != 0 {
-                writeln!(self.out, "      arexibo.regions[{rid}].timeout = \
-                                    window.setTimeout(() => {{ {} }}, {});",
-                         next_fn, 1000 * duration)?;
-            } else if let Some(expr) = custom_duration {
-                writeln!(self.out, "      arexibo.regions[{rid}].timeout = \
-                                          window.setTimeout(() => {{ {} }}, {});",
-                         next_fn, expr)?;
-            }
-            writeln!(self.out, "    }},")?;
+            writeln!(self.out, "      {add_stop}")?;
+            writeln!(self.out, "    }}, {duration}],")?;
         }
         writeln!(self.out, "  ],")?;
         writeln!(self.out, "}};\n</script>")?;
@@ -267,9 +269,10 @@ impl<'a> Translator<'a> {
                    media: &Element) -> Result<Option<MediaInfo>> {
         let mid = media.parse_attr("id")?;
         let opts = media.find("options").context("no options")?;
-        let len = media.def_attr("duration", "").parse::<i32>().unwrap_or(10);
-        let mut custom_start = "".into();
-        let mut custom_duration = None;
+        let mut duration = media.def_attr("duration", "").parse::<i32>()
+            .unwrap_or(10).to_string();
+        let mut add_start = "".into();
+        let mut add_stop = "".into();
         writeln!(self.out, "  <!-- media {mid} -->")?;
         match (media.get_attr("render"), media.get_attr("type")) {
             (Some("html"), _) |
@@ -300,16 +303,39 @@ impl<'a> Translator<'a> {
                                     height: {h}px;{}{}'></video>",
                          if mute { "muted" } else { "" },
                          object_fit(opts), object_pos(opts))?;
-                custom_start = format!("document.getElementById('m{}').play();", mid);
-                custom_duration = Some(format!(
-                    "document.getElementById('m{}').duration * 1000", mid));
+                add_start = format!("document.getElementById('m{}').play();", mid);
+                duration = format!("document.getElementById('m{}').duration", mid);
+            }
+            (_, Some("shellcommand")) => {
+                writeln!(self.out, "<div class='media r{rid}' id='m{mid}' \
+                                    style='left: {x}px; top: {y}px; width: {w}px; \
+                                    height: {h}px;'></div>")?;
+
+                let is_cmd = opts.req_child("commandType")? == "storedCommand";
+                if is_cmd {
+                    let code = opts.req_child("commandCode")?;
+                    add_start = format!("window.arexiboGui.jsCommand({code:?});");
+                } else {
+                    let with_shell = opts.req_child("launchThroughCmd")? == "1";
+                    let cmd = if opts.req_child("useGlobalCommand")? == "1" {
+                        opts.req_child("globalCommand")?
+                    } else {
+                        opts.req_child("linuxCommand")?
+                    };
+                    add_start = format!("window.arexiboGui.jsShell({cmd:?}, {with_shell});");
+
+                    let kill = if opts.req_child("terminateCommand")? == "1" {
+                        if opts.req_child("useTaskkill")? == "1" { 2 } else { 1 }
+                    } else { 0 };
+                    add_stop = format!("window.arexiboGui.jsStopShell({kill});");
+                }
             }
             _ => {
                 log::warn!("unsupported media type: {:?}", media.get_attr("type"));
                 return Ok(None);
             }
         }
-        Ok(Some((mid, len, custom_start, None, custom_duration)))
+        Ok(Some((mid, duration, add_start, add_stop)))
     }
 }
 

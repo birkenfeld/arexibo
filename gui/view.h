@@ -58,6 +58,9 @@ public slots:
     void jsLayoutDone();
     void jsLayoutPrev();
     void jsLayoutJump(int);
+    void jsCommand(QString);
+    void jsShell(QString, int);
+    void jsStopShell(int);
 };
 
 #endif
