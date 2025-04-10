@@ -55,9 +55,9 @@ private:
 
 public slots:
     void jsLayoutInit(int, int, int);
-    void jsLayoutDone();
-    void jsLayoutPrev();
-    void jsLayoutJump(int);
+    void jsLayoutDone(int);
+    void jsLayoutPrev(int);
+    void jsLayoutJump(int, int);
     void jsCommand(QString);
     void jsShell(QString, int);
     void jsStopShell(int);

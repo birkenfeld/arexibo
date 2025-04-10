@@ -152,19 +152,19 @@ void JSInterface::jsLayoutInit(int id, int width, int height)
     wnd->cb(wnd->cb_ptr, CB_LAYOUT_INIT, id, width, height);
 }
 
-void JSInterface::jsLayoutDone()
+void JSInterface::jsLayoutDone(int id)
 {
-    wnd->cb(wnd->cb_ptr, CB_LAYOUT_NEXT, 0, 0, 0);
+    wnd->cb(wnd->cb_ptr, CB_LAYOUT_NEXT, id, 0, 0);
 }
 
-void JSInterface::jsLayoutPrev()
+void JSInterface::jsLayoutPrev(int id)
 {
-    wnd->cb(wnd->cb_ptr, CB_LAYOUT_PREV, 0, 0, 0);
+    wnd->cb(wnd->cb_ptr, CB_LAYOUT_PREV, id, 0, 0);
 }
 
-void JSInterface::jsLayoutJump(int which)
+void JSInterface::jsLayoutJump(int id, int which)
 {
-    wnd->cb(wnd->cb_ptr, CB_LAYOUT_JUMP, which, 0, 0);
+    wnd->cb(wnd->cb_ptr, CB_LAYOUT_JUMP, id, which, 0);
 }
 
 void JSInterface::jsCommand(QString code)

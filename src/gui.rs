@@ -91,15 +91,15 @@ extern "C" fn callback(ptr: *mut c_void, typ: isize, arg1: isize, arg2: isize, _
             }
         }
         cpp::CB_LAYOUT_NEXT => {
-            if let Some(id) = cb_data.schedule.lock().unwrap().next() {
+            let mut schedule = cb_data.schedule.lock().unwrap();
+            if let Some(id) = schedule.next() {
                 log::info!("showing next layout: {}", id);
                 let file = CString::new(format!("{}.xlf.html", id)).unwrap();
                 unsafe {
                     cpp::navigate(file.as_ptr());
                 }
             } else {
-                // TODO: record that the layout is done so that we
-                // can switch to the next one on update.
+                schedule.mark_done();
             }
         }
         cpp::CB_LAYOUT_PREV => {
@@ -112,8 +112,8 @@ extern "C" fn callback(ptr: *mut c_void, typ: isize, arg1: isize, arg2: isize, _
             }
         }
         cpp::CB_LAYOUT_JUMP => {
-            log::info!("jumping to layout: {}", arg1);
-            let file = CString::new(format!("{}.xlf.html", arg1)).unwrap();
+            log::info!("jumping to layout: {}", arg2);
+            let file = CString::new(format!("{}.xlf.html", arg2)).unwrap();
             unsafe {
                 cpp::navigate(file.as_ptr());
             }
@@ -147,6 +147,7 @@ extern "C" fn callback(ptr: *mut c_void, typ: isize, arg1: isize, arg2: isize, _
 struct Schedule<T> {
     index: Option<usize>,
     layouts: Vec<T>,
+    single_done: bool,
 }
 
 impl<T: Eq + Default + Clone> Schedule<T> {
@@ -158,7 +159,12 @@ impl<T: Eq + Default + Clone> Schedule<T> {
 
         // if this layout is also in the new schedule, keep it
         if let Some(new_index) = self.layouts.iter().position(|t| t == &cur_t) {
-            self.index = Some(new_index);
+            if self.single_done {
+                self.index = Some((new_index + 1) % self.layouts.len());
+            } else {
+                self.index = Some(new_index);
+            }
+            self.single_done = false;
             None
         } else if !self.layouts.is_empty() {
             // otherwise, start showing the first of the new layouts if we have some
@@ -202,6 +208,11 @@ impl<T: Eq + Default + Clone> Schedule<T> {
     /// Return current layout.
     fn current(&self) -> T {
         self.index.map(|i| self.layouts[i].clone()).unwrap_or_default()
+    }
+
+    /// Mark current layout as having run.
+    fn mark_done(&mut self) {
+        self.single_done = true;
     }
 }
 

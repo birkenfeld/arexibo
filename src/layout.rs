@@ -15,7 +15,7 @@ use crate::util::{ElementExt, percent_decode};
 // - reloading resources in iframes
 // - overriding duration from resources
 
-pub const TRANSLATOR_VERSION: u32 = 0;
+pub const TRANSLATOR_VERSION: u32 = 9;
 
 const LAYOUT_CSS: &str = r#"
 body { margin: 0; background-repeat: no-repeat; overflow: hidden; }
@@ -27,7 +27,8 @@ p { margin-top: 0; }
 const SCRIPT: &str = r#"
 new QWebChannel(qt.webChannelTransport, function(channel) {
   window.arexiboGui = channel.objects.arexibo;
-  window.arexiboGui.jsLayoutInit(arexibo.id, arexibo.width, arexibo.height);
+  window.arexiboGui.jsLayoutInit(window.arexibo.id,
+                                 window.arexibo.width, window.arexibo.height);
 });
 
 window.arexibo = {
@@ -77,7 +78,7 @@ window.arexibo = {
     for (let region of Object.values(this.regions)) {
       if (!region.done) return;
     }
-    window.arexiboGui.jsLayoutDone();
+    window.arexiboGui.jsLayoutDone(window.arexibo.id);
     this.done = true;
   },
 
@@ -85,13 +86,13 @@ window.arexibo = {
     if (this.triggers[code] !== undefined) {
       let {action, target, targetid, layoutid} = this.triggers[code];
       if (action == 'navLayout') {
-        window.arexiboGui.jsLayoutJump(layoutid);
+        window.arexiboGui.jsLayoutJump(window.arexibo.id, layoutid);
       } else if (action == 'previous' || action == 'next') {
         if (target == 'layout') {
           if (action == 'next')
-            window.arexiboGui.jsLayoutDone();
+            window.arexiboGui.jsLayoutDone(window.arexibo.id);
           else
-            window.arexiboGui.jsLayoutPrev();
+            window.arexiboGui.jsLayoutPrev(window.arexibo.id);
         } else {
           if (action == 'next')
             this.region_switch(targetid, -1);
@@ -159,7 +160,7 @@ impl<'a> Translator<'a> {
             layoutid = self.code_map.get(layoutcode).cloned().context("unknown layout code")?;
         }
         if typ == "webhook" {
-            writeln!(self.out, "arexibo.triggers[{code:?}] = {{")?;
+            writeln!(self.out, "window.arexibo.triggers[{code:?}] = {{")?;
             writeln!(self.out, "  action: {action:?},")?;
             writeln!(self.out, "  target: {target:?},")?;
             writeln!(self.out, "  targetid: {targetid},")?;
@@ -206,7 +207,7 @@ impl<'a> Translator<'a> {
         writeln!(self.out, "<script type='text/javascript'>\n\
                             window.addEventListener('load', function() {{")?;
         for rid in &self.regions {
-            writeln!(self.out, "  arexibo.region_switch({rid}, 0, true);")?;
+            writeln!(self.out, "  window.arexibo.region_switch({rid}, 0, true);")?;
         }
         writeln!(self.out, "}});\n</script>")?;
         writeln!(self.out, "</body></html>")?;
@@ -237,7 +238,7 @@ impl<'a> Translator<'a> {
         }
 
         writeln!(self.out, "<script type='text/javascript'>")?;
-        writeln!(self.out, "arexibo.regions[{rid}] = {{")?;
+        writeln!(self.out, "window.arexibo.regions[{rid}] = {{")?;
         writeln!(self.out, "  done: false,")?;
         writeln!(self.out, "  cur: null,")?;
         writeln!(self.out, "  timeoutid: null,")?;
