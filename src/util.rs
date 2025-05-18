@@ -44,6 +44,8 @@ pub trait ElementExt {
     fn req_child<'a>(&'a self, child: &'a str) -> Result<&'a str>;
     fn parse_child<T: FromStr>(&self, child: &str) -> Result<T>
         where T::Err: std::error::Error + Sync + Send + 'static;
+    fn def_child<T: FromStr>(&self, child: &str, default: impl Into<T>) -> Result<T>
+        where T::Err: std::error::Error + Sync + Send + 'static;
 }
 
 impl ElementExt for elementtree::Element {
@@ -73,6 +75,16 @@ impl ElementExt for elementtree::Element {
         self.find(child).with_context(|| format!("missing {}", child))?
                         .text()
                         .parse().with_context(|| format!("invalid {}", child))
+    }
+
+    fn def_child<T: FromStr>(&self, child: &str, default: impl Into<T>) -> Result<T>
+        where T::Err: std::error::Error + Sync + Send + 'static
+    {
+        match self.find(child) {
+            None => Ok(default.into()),
+            Some(el) => el.text()
+                          .parse().with_context(|| format!("invalid {}", child))
+        }
     }
 }
 

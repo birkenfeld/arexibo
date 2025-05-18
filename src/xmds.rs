@@ -76,8 +76,8 @@ impl Cms {
                     commands.insert(el.tag().name().into(),
                                     Command {
                                         command: el.parse_child("commandString")?,
-                                        validate: el.parse_child("validationString")?,
-                                        alerts: el.parse_child("createAlertOn")?,
+                                        validate: el.def_child("validationString", "")?,
+                                        alerts: el.def_child("createAlertOn", "")?,
                                     });
                 }
             }
