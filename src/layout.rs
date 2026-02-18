@@ -297,6 +297,12 @@ impl<'a> Translator<'a> {
                                     style='left: {x}px; top: {y}px; width: {w}px; \
                                     height: {h}px;'></iframe>")?;
             }
+            (_, Some("pdf")) => {
+                let filename = opts.find("uri").context("no pdf uri")?.text();
+                writeln!(self.out, "<iframe class='media r{rid}' id='m{mid}' src='{filename}' \
+                                    style='left: {x}px; top: {y}px; width: {w}px; \
+                                    height: {h}px;'></iframe>")?;
+            }
             (_, Some("image")) => {
                 let filename = opts.find("uri").context("no image uri")?.text();
                 writeln!(self.out, "<img class='media r{rid}' id='m{mid}' src='{filename}' \

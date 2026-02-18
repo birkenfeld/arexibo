@@ -3,7 +3,7 @@
 
 //! Main collect loop that also processes XMR requests.
 
-use std::{fs, path::{Path, PathBuf}, thread, time::Duration};
+use std::{fmt, fs, path::{Path, PathBuf}, thread, time::Duration};
 use anyhow::{bail, Context, Result};
 use crossbeam_channel::{after, never, select, tick, Receiver, Sender};
 use itertools::Itertools;
@@ -14,6 +14,20 @@ use crate::config::{CmsSettings, PlayerSettings};
 use crate::{logger, util, xmds, xmr};
 use crate::resource::Cache;
 use crate::schedule::Schedule;
+
+/// Error indicating the display is registered but not yet authorized in the CMS.
+/// Uses a distinct exit code (2) so the kiosk session holder can wait patiently
+/// instead of treating it as a configuration failure.
+#[derive(Debug)]
+pub struct NotAuthorized;
+
+impl fmt::Display for NotAuthorized {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "display is not authorized yet, try again after authorization in the CMS")
+    }
+}
+
+impl std::error::Error for NotAuthorized {}
 
 /// Messages sent to the GUI thread
 pub enum ToGui {
@@ -115,7 +129,7 @@ impl Handler {
             slf.schedule_check();  // only useful in case of cached schedule
             Ok(slf)
         } else {
-            bail!("display is not authorized yet, try again after authorization in the CMS");
+            return Err(NotAuthorized.into());
         }
     }
 

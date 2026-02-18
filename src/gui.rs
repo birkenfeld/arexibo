@@ -219,7 +219,7 @@ impl<T: Eq + Default + Clone> Schedule<T> {
 #[cfg(test)]
 #[test]
 fn test_schedule() {
-    let mut schedule = Schedule { index: None, layouts: vec![] };
+    let mut schedule = Schedule { index: None, layouts: vec![], single_done: false };
     assert_eq!(schedule.next(), None);
     assert_eq!(schedule.update(vec![]), Some(0));
     assert_eq!(schedule.update(vec![1]), Some(1));

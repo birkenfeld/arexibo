@@ -63,7 +63,14 @@ fn main() {
     log::set_logger(&logger::Logger).expect("failed to set logger");
     log::set_max_level(log::LevelFilter::Debug);
     if let Err(e) = main_inner() {
+        // Exit code 2: display not authorized yet (transient, keep retrying)
+        // Exit code 1: actual error (bad config, CMS unreachable, etc.)
+        if e.root_cause().downcast_ref::<mainloop::NotAuthorized>().is_some() {
+            log::warn!("{:#}", e);
+            std::process::exit(2);
+        }
         log::error!("exiting on error: {:#}", e);
+        std::process::exit(1);
     }
 }
 
