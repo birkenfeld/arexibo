@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Arexibo
+GenericName=Digital Signage Player
+Comment=Rust-based digital signage player for Xibo CMS
+Exec=arexibo
+Icon=arexibo
+Terminal=false
+Categories=Utility;
+Keywords=signage;digital;kiosk;xibo;
+StartupNotify=true
