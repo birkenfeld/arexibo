@@ -17,15 +17,15 @@ path = "src/main.rs"
 # general
 anyhow = "1.0"
 base64 = "0.22"
-time = { version = "0.3.37", features = ["parsing", "formatting", "local-offset", "serde"] }
-once_cell = "1.18"
-clap = { version = "4.0", features = ["cargo", "derive"] }
+time = { version = "<=0.3.41", features = ["parsing", "formatting", "local-offset", "serde"] }
+once_cell = "1.21"
+clap = { version = "4.5", features = ["cargo", "derive"] }
 crossbeam-channel = "0.5"
 parking_lot = "0.12"
 hex = "0.4"
 itertools = "0.14"
 log = "0.4"
-nix = { version = "0.29", features = ["fs", "hostname"] }
+nix = { version = "0.31", features = ["fs", "hostname"] }
 rand = "0.8"
 dbus = "0.9"
 
@@ -41,17 +41,20 @@ serde_json = "1.0"
 
 # network
 tiny_http = "0.12"
-ureq = { version = "3.0", features = ["socks-proxy"] }
+ureq = { version = "3.2", features = ["socks-proxy"] }
 zmq = "0.10"
 
 # commands
-serialport = "4.7"
-regex = "1.0"
+serialport = "4.8"
+regex = "1.12"
 shlex = "1.3"
-subprocess = "0.2.9"
+subprocess = "<=0.2.9"
 
 # MSRV
 base64ct = "~1.6"
+rayon = "~1.10"
+rayon-core = "~1.12"
+indexmap = "~2.11"
 
 [build-dependencies]
 cmake = "0.1"
