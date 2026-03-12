@@ -126,7 +126,7 @@ impl Server {
                 // guess the MIME type based on filename
                 let ctype = match ext {
                     Some("html") => "text/html",
-                    Some("js") => "text/javascript",
+                    Some("js") | Some("mjs") => "text/javascript",
                     Some("ttf" | "otf") => "application/font-sfnt",
                     Some("jpg" | "jpeg") => "image/jpeg",
                     Some("png") => "image/png",

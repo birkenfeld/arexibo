@@ -140,7 +140,28 @@ impl Cache {
             None
         }).collect();
 
-        Ok(Self { dir, agent: cms.make_agent(no_verify)?, content, code_map })
+        let cache = Self { dir, agent: cms.make_agent(no_verify)?, content, code_map };
+        cache.install_pdfjs()?;
+        Ok(cache)
+    }
+
+    /// Install bundled pdf.js files into the cache directory for the local HTTP server.
+    fn install_pdfjs(&self) -> Result<()> {
+        let pdfjs_dir = self.dir.join("pdfjs");
+        if !pdfjs_dir.is_dir() {
+            fs::create_dir_all(&pdfjs_dir)?;
+        }
+        let pdf_lib = pdfjs_dir.join("pdf.min.mjs");
+        if !pdf_lib.is_file() {
+            fs::write(&pdf_lib, PDFJS_LIB)?;
+            log::info!("Installed pdf.js library ({} bytes)", PDFJS_LIB.len());
+        }
+        let pdf_worker = pdfjs_dir.join("pdf.worker.min.mjs");
+        if !pdf_worker.is_file() {
+            fs::write(&pdf_worker, PDFJS_WORKER)?;
+            log::info!("Installed pdf.js worker ({} bytes)", PDFJS_WORKER.len());
+        }
+        Ok(())
     }
 
     pub fn dir(&self) -> &PathBuf {
@@ -312,6 +333,8 @@ impl Cache {
         }
         self.content.clear();
         self.save()?;
+        // Re-install bundled assets after purge
+        self.install_pdfjs()?;
         Ok(())
     }
 }
@@ -343,3 +366,7 @@ impl<W> Write for HashingWriter<W> where W: Write {
         self.writer.flush()
     }
 }
+
+/// Bundled pdf.js library (Mozilla, Apache 2.0 license).
+const PDFJS_LIB: &[u8] = include_bytes!("../assets/pdfjs/pdf.min.mjs");
+const PDFJS_WORKER: &[u8] = include_bytes!("../assets/pdfjs/pdf.worker.min.mjs");
