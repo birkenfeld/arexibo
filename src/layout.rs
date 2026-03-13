@@ -16,13 +16,82 @@ use crate::util::{ElementExt, percent_decode};
 // - overriding duration from resources
 // - fromDt/toDt
 
-pub const TRANSLATOR_VERSION: u32 = 9;
+pub const TRANSLATOR_VERSION: u32 = 10;
 
 const LAYOUT_CSS: &str = r#"
 body { margin: 0; background-repeat: no-repeat; overflow: hidden; }
 iframe { border: 0 }
 .media { position: absolute; visibility: hidden; }
+.pdf-canvas { display: block; }
 p { margin-top: 0; }
+"#;
+
+/// Inline pdf.js rendering engine — loaded once per layout that contains a PDF widget.
+/// Renders pages to a canvas with timed cycling (duration / numPages per page).
+const PDF_SCRIPT: &str = r#"
+window.arexiboPdf = {
+  _instances: {},
+
+  start: function(canvasId, url, width, height, duration) {
+    var self = this;
+    var canvas = document.getElementById(canvasId);
+    var ctx = canvas.getContext('2d');
+    canvas.width = width;
+    canvas.height = height;
+
+    var state = { pdf: null, currentPage: 1, totalPages: 0, timer: null, destroyed: false };
+    self._instances[canvasId] = state;
+
+    pdfjsLib.getDocument({ url: url, isEvalSupported: false }).promise.then(function(pdf) {
+      if (state.destroyed) { pdf.destroy(); return; }
+      state.pdf = pdf;
+      state.totalPages = pdf.numPages;
+
+      function renderPage(num) {
+        if (state.destroyed) return;
+        pdf.getPage(num).then(function(page) {
+          if (state.destroyed) { page.cleanup(); return; }
+          var viewport = page.getViewport({ scale: 1 });
+          var scale = Math.min(width / viewport.width, height / viewport.height);
+          var scaledViewport = page.getViewport({ scale: scale });
+
+          // Center on canvas
+          ctx.clearRect(0, 0, width, height);
+          ctx.save();
+          ctx.translate(
+            (width - scaledViewport.width) / 2,
+            (height - scaledViewport.height) / 2
+          );
+
+          page.render({ canvasContext: ctx, viewport: scaledViewport }).promise.then(function() {
+            ctx.restore();
+            page.cleanup();
+          });
+        });
+      }
+
+      renderPage(1);
+
+      if (state.totalPages > 1) {
+        var interval = (duration / state.totalPages) * 1000;
+        state.timer = setInterval(function() {
+          if (state.destroyed) return;
+          state.currentPage = (state.currentPage % state.totalPages) + 1;
+          renderPage(state.currentPage);
+        }, interval);
+      }
+    });
+  },
+
+  stop: function(canvasId) {
+    var state = this._instances[canvasId];
+    if (!state) return;
+    state.destroyed = true;
+    if (state.timer) { clearInterval(state.timer); state.timer = null; }
+    if (state.pdf) { state.pdf.destroy(); state.pdf = null; }
+    delete this._instances[canvasId];
+  }
+};
 "#;
 
 const SCRIPT: &str = r#"
@@ -117,6 +186,7 @@ pub struct Translator<'a> {
     regions: Vec<i32>,
     size: (i32, i32),
     code_map: &'a HashMap<String, LayoutId>,
+    has_pdf: bool,
 }
 
 impl<'a> Translator<'a> {
@@ -128,11 +198,21 @@ impl<'a> Translator<'a> {
         let out = fs::File::create(html)?;
         let out = BufWriter::new(out);
 
-        Ok(Self { id, tree, out, regions: Vec::new(), size: (0, 0), code_map })
+        Ok(Self { id, tree, out, regions: Vec::new(), size: (0, 0), code_map, has_pdf: false })
     }
 
     pub fn translate(mut self) -> Result<(i32, i32)> {
         let tree = self.tree.take().unwrap();
+        // Pre-scan for PDF widgets to know if we need pdf.js
+        for region in tree.find_all("region") {
+            for media in region.find_all("media") {
+                if media.get_attr("type") == Some("pdf") {
+                    self.has_pdf = true;
+                    break;
+                }
+            }
+            if self.has_pdf { break; }
+        }
         self.write_header(&tree)?;
         for region in tree.find_all("region") {
             if let Err(e) = self.write_region(region) {
@@ -200,6 +280,15 @@ impl<'a> Translator<'a> {
         }
 
         writeln!(self.out, "</style>")?;
+        if self.has_pdf {
+            writeln!(self.out, "<script src='pdfjs/pdf.min.mjs' type='module'></script>")?;
+            writeln!(self.out, "<script type='module'>")?;
+            writeln!(self.out, "import * as pdfjsLib from './pdfjs/pdf.min.mjs';")?;
+            writeln!(self.out, "pdfjsLib.GlobalWorkerOptions.workerSrc = './pdfjs/pdf.worker.min.mjs';")?;
+            writeln!(self.out, "window.pdfjsLib = pdfjsLib;")?;
+            writeln!(self.out, "</script>")?;
+            writeln!(self.out, "<script type='text/javascript'>{}</script>", PDF_SCRIPT)?;
+        }
         writeln!(self.out, "</head><body>")?;
         Ok(())
     }
@@ -299,9 +388,14 @@ impl<'a> Translator<'a> {
             }
             (_, Some("pdf")) => {
                 let filename = opts.find("uri").context("no pdf uri")?.text();
-                writeln!(self.out, "<iframe class='media r{rid}' id='m{mid}' src='{filename}' \
+                let dur = media.def_attr("duration", "").parse::<i32>().unwrap_or(10);
+                writeln!(self.out, "<canvas class='media pdf-canvas r{rid}' id='m{mid}' \
                                     style='left: {x}px; top: {y}px; width: {w}px; \
-                                    height: {h}px;'></iframe>")?;
+                                    height: {h}px;'></canvas>")?;
+                add_start = format!(
+                    "window.arexiboPdf.start('m{mid}', '{filename}', {w}, {h}, {dur});");
+                add_stop = format!(
+                    "window.arexiboPdf.stop('m{mid}');");
             }
             (_, Some("image")) => {
                 let filename = opts.find("uri").context("no image uri")?.text();
