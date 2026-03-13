@@ -57,6 +57,12 @@ impl Server {
             "/splash.jpg" => Response::from_data(SPLASH_JPG).boxed(),
             "/0.xlf.html" => Response::from_data(SPLASH_HTML).boxed(),
 
+            // SDK duration callbacks — just ACK them; arexibo uses XLF durations
+            "/duration/set" | "/duration/extend" | "/duration/expire" =>
+                Response::from_data(b"{}").with_header(
+                    Header::from_bytes(b"Content-Type", b"application/json").unwrap()
+                ).boxed(),
+
             // any other static files
             url => {
                 let parts = url.split('?').collect_vec();
