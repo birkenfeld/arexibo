@@ -1,0 +1,23 @@
+name: Build Arexibo RPM
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    uses: xibo-players/.github/.github/workflows/build-rpm.yml@main
+    with:
+      package-name: arexibo
+      rpm-spec: 'rpm/arexibo.spec'
+      fedora-matrix: '["43"]'
+      arch-matrix: '["x86_64", "aarch64"]'
+      source-tarball: 'full'
+      gpg-sign: true
+      default-version: '0.3.3'
+      publish-to-repo: true
+    secrets: inherit

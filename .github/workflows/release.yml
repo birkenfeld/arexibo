@@ -1,0 +1,13 @@
+name: Create GitHub Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  release:
+    uses: xibo-players/.github/.github/workflows/create-release.yml@main
+    with:
+      package-name: arexibo
+      description: 'Minimal native Xibo digital signage player written in Rust.'
