@@ -43,10 +43,8 @@ serde_json = "1.0"
 # network
 tiny_http = "0.12"
 ureq = { version = "<3.3", features = ["socks-proxy"] }
-# zmq-rs, unfortunately, hasn't had a release in 3 years,
-# but a newer commit is required for Rocky 10 not to segfault.
-# See https://github.com/birkenfeld/arexibo/issues/15
-zmq = { git = "https://github.com/erickt/rust-zmq", rev = "5d78967001abb1aece2fba878d6151cb66cd1767" }
+zeromq = { version = "0.5", default-features = false, features = ["async-std-runtime", "tcp-transport"] }
+async-std = "1"
 
 # commands
 serialport = "4.8"
@@ -59,6 +57,9 @@ base64ct = "~1.6"
 rayon = "~1.10"
 rayon-core = "~1.12"
 indexmap = "~2.11"
+saa = "~5.3"
+scc = "~3.4"
+sdd = "~4.4"
 
 [build-dependencies]
 cmake = "0.1"

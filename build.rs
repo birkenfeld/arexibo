@@ -70,6 +70,7 @@ fn build_qtlib() {
     println!("cargo:rerun-if-changed=gui/view.h");
     println!("cargo:rustc-link-search=native={}/build", dst.display());
     println!("cargo:rustc-link-lib=static=arexibogui");
+    println!("cargo:rustc-link-lib=stdc++");
 
     let linker_script = std::fs::read_to_string(
         format!("{}/build/CMakeFiles/dummy.dir/link.txt", dst.display())).unwrap();

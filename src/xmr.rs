@@ -3,13 +3,15 @@
 
 //! Receive, decrypt and handle incoming XMR messages from CMS.
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
+use async_std::task;
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use rsa::RsaPrivateKey;
 use serde::{Deserialize, Deserializer, de::Error};
 use serde_json::from_slice;
 use time::{OffsetDateTime, Duration};
+use zeromq::{Socket, SocketRecv};
 use crate::config::CmsSettings;
 
 /// Possible messages to forward to the collect thread.
@@ -25,49 +27,55 @@ pub enum Message {
 pub struct Manager {
     private_key: RsaPrivateKey,
     sender: Sender<Message>,
-    #[allow(unused)]  // need to hold onto the context
-    context: zmq::Context,
-    socket: zmq::Socket,
+    socket: zeromq::SubSocket,
 }
 
-const HEARTBEAT: &[u8] = b"H";
+const HEARTBEAT: &str = "H";
+
+async fn make_socket(connect: &str, channel: &str) -> Result<zeromq::SubSocket> {
+    let mut socket = zeromq::SubSocket::new();
+    socket.connect(connect).await.context("connecting XMR socket")?;
+    socket.subscribe(channel).await?;
+    socket.subscribe(HEARTBEAT).await?;
+    Ok(socket)
+}
 
 impl Manager {
     pub fn new(settings: &CmsSettings, connect: &str,
                private_key: RsaPrivateKey) -> Result<(Self, Receiver<Message>)> {
         let channel = settings.xmr_channel();
-        let context = zmq::Context::new();
-        let socket = context.socket(zmq::SUB).context("creating XMR socket")?;
-        socket.connect(connect).context("connecting XMR socket")?;
-        socket.set_linger(0)?;
-        socket.set_subscribe(channel.as_bytes())?;
-        socket.set_subscribe(HEARTBEAT)?;
-        let (sender, receiver) = unbounded();
+        let socket = task::block_on(make_socket(connect, &channel))?;
 
+        let (sender, receiver) = unbounded();
         Ok((Self {
             private_key,
             sender,
-            context,
             socket,
         }, receiver))
     }
 
     pub fn run(mut self) {
-        loop {
-            if let Err(e) = self.process_msg() {
-                log::error!("handling XMR message: {:#}", e);
+        task::block_on(async {
+            loop {
+                if let Err(e) = self.process_msg().await {
+                    log::error!("handling XMR message: {:#}", e);
+                }
             }
-        }
+        });
     }
 
-    fn process_msg(&mut self) -> Result<()> {
-        let channel = self.socket.recv_msg(0)?;
-        assert!(channel.get_more());
-        let key = self.socket.recv_msg(0)?;
-        assert!(key.get_more());
-        let content = self.socket.recv_msg(0)?;
-        assert!(!content.get_more());
-        if &*channel != HEARTBEAT {
+    async fn process_msg(&mut self) -> Result<()> {
+        let message = self.socket.recv().await?.into_vec();
+        if message.len() < 3 {
+            bail!("received too-short message");
+        }
+        let channel = &message[0];
+        let key = &message[1];
+        let content = &message[2];
+        println!("channel: {:?}", channel);
+        println!("key: {:?}", key);
+        println!("content: {:?}", content);
+        if &*channel != HEARTBEAT.as_bytes() {
             let json_msg = JsonMessage::new(&self.private_key, &key, &content)?;
             log::debug!("got XMR message: {:?}", json_msg);
             if let Some(msg) = json_msg.into_msg() {
