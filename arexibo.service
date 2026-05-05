@@ -1,0 +1,29 @@
+# arexibo - Rust-based digital signage player for Xibo CMS
+# systemd user unit
+
+[Unit]
+Description=arexibo Digital Signage Player
+After=graphical-session.target
+Requisite=graphical-session.target
+StartLimitBurst=20
+StartLimitIntervalSec=300
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.local/share/xibo/env
+ExecStart=/usr/bin/arexibo --allow-offline %h/.local/share/xibo
+ExecStartPre=/bin/sh -c '[ -f %h/.local/share/xibo/cms.json ]'
+Restart=on-failure
+RestartSec=5s
+
+# Resource limits
+MemoryMax=1536M
+MemoryHigh=1G
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=arexibo
+
+[Install]
+WantedBy=graphical-session.target
