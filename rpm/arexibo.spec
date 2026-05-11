@@ -6,7 +6,7 @@ Release:        3%{?dist}
 Summary:        Rust-based digital signage player for Xibo CMS
 
 License:        AGPLv3+
-URL:            https://github.com/xibo-players/arexibo
+URL:            https://github.com/xiboplayer/arexibo
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  rust >= 1.75

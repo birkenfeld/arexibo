@@ -1,4 +1,4 @@
-# Fork status — `xibo-players/arexibo`
+# Fork status — `xiboplayer/arexibo`
 
 This is a fork of [`birkenfeld/arexibo`](https://github.com/birkenfeld/arexibo),
 the original Rust/Qt6 Xibo signage player for Linux (primarily Raspberry Pi).
@@ -79,7 +79,7 @@ Dependabot bumps (`f7ec095`, `30b6756`, etc.) — replay as they appear upstream
    redundant (upstream implemented the same fix differently) — do NOT
    silently carry them as duplicates.
 3. **When opening an upstream PR**, do it from our fork directly:
-   `xibo-players/arexibo` is the GitHub-recognised fork of
+   `xiboplayer/arexibo` is the GitHub-recognised fork of
    `birkenfeld/arexibo` (`linuxnow/arexibo` redirects to us — the
    linuxnow repo was transferred to the org during the account
    consolidation; compare-URLs only work from the `xibo-players`
@@ -92,4 +92,4 @@ Dependabot bumps (`f7ec095`, `30b6756`, etc.) — replay as they appear upstream
 
 Primary point of contact for this fork: Pau Aliagas <pau@xiboplayer.org>.
 Discussion of upstreaming strategy: private in
-`xibo-players/xiboplayer-compliance` (tracking issue #TBD).
+`xiboplayer/xiboplayer-compliance` (tracking issue #TBD).
