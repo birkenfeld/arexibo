@@ -10,7 +10,7 @@ env:
 
 jobs:
   release:
-    uses: xibo-players/.github/.github/workflows/create-release.yml@5c3b3699cd05c12bb3ec76e5d1d317d539dd69b4  # main
+    uses: xiboplayer/.github/.github/workflows/create-release.yml@5c3b3699cd05c12bb3ec76e5d1d317d539dd69b4  # main
     with:
       package-name: arexibo
       description: 'Minimal native Xibo digital signage player written in Rust.'

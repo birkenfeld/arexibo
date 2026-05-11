@@ -21,7 +21,7 @@ Binary builds are published on every tagged release:
   rebuild from source without running the full Cargo toolchain directly.
 
 Install from the xiboplayer package repos listed at
-<https://xibo-players.github.io/>.
+<https://xiboplayer.github.io/>.
 
 To build from source, you need:
 
@@ -126,7 +126,7 @@ for a version that hasn't been released yet:
 
 ```bash
 # 1. Clone the repo and check out the version you want
-git clone https://github.com/xibo-players/arexibo.git
+git clone https://github.com/xiboplayer/arexibo.git
 cd arexibo
 git checkout v0.3.3           # or any tag / commit
 
