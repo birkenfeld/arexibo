@@ -17,7 +17,7 @@ jobs:
     with:
       package-name: arexibo
       rpm-spec: 'rpm/arexibo.spec'
-      fedora-matrix: '["43"]'
+      fedora-matrix: '["43", "44"]'
       arch-matrix: '["x86_64", "aarch64"]'
       source-tarball: 'full'
       gpg-sign: true
