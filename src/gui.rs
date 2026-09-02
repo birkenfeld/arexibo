@@ -162,13 +162,27 @@ impl<T: Eq + Default + Clone> Schedule<T> {
 
         // if this layout is also in the new schedule, keep it
         if let Some(new_index) = self.layouts.iter().position(|t| t == &cur_t) {
-            if self.single_done {
-                self.index = Some((new_index + 1) % self.layouts.len());
+            let idx = if self.single_done {
+                (new_index + 1) % self.layouts.len()
             } else {
-                self.index = Some(new_index);
-            }
+                new_index
+            };
+            self.index = Some(idx);
             self.single_done = false;
-            None
+            // Report a change only when the *layout* differs from what is on
+            // screen.  Comparing indices is not enough: the index moves whenever
+            // the CMS reorders the list, and returning Some in that case would
+            // re-navigate to the layout already showing.
+            //
+            // Returning None here while having moved the index is what left the
+            // player permanently stuck: current() then reported the new layout,
+            // so the next update() found it already "current" and never
+            // navigated.
+            if self.layouts[idx] != cur_t {
+                Some(self.layouts[idx].clone())
+            } else {
+                None
+            }
         } else if !self.layouts.is_empty() {
             // otherwise, start showing the first of the new layouts if we have some
             self.index = Some(0);
@@ -231,4 +245,28 @@ fn test_schedule() {
     assert_eq!(schedule.next(), Some(3));
     assert_eq!(schedule.next(), Some(2));
     assert_eq!(schedule.update(vec![1, 3]), Some(1));
+}
+
+#[cfg(test)]
+#[test]
+fn test_schedule_single_done_navigates() {
+    // A single scheduled layout that has played through once must not leave the
+    // schedule desynchronised from the view when the schedule then changes.
+    let mut schedule = Schedule { index: None, layouts: vec![], single_done: false };
+
+    // one layout scheduled and shown
+    assert_eq!(schedule.update(vec![14]), Some(14));
+
+    // it finishes; only one is scheduled, so next() declines and the caller
+    // marks it done
+    assert_eq!(schedule.next(), None);
+    schedule.mark_done();
+
+    // the schedule grows: the index advances past the layout that has run, and
+    // the caller must be told to navigate
+    assert_eq!(schedule.update(vec![14, 24]), Some(24));
+    assert_eq!(schedule.current(), 24);
+
+    // and once it is showing 24, a schedule of just [24] is not a change
+    assert_eq!(schedule.update(vec![24]), None);
 }
